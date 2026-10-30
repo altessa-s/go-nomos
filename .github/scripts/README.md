@@ -24,7 +24,16 @@ feat(loader/backend): add a JSON backend
 fix(loader/secrets): preserve quoted placeholders
 test(internal/conversion): cover environment round trips
 docs: update installation instructions
-build(deps): update dependencies
+build(devtools): bump golangci-lint
+```
+
+Invalid messages:
+
+```text
+Add new feature                       # Missing type
+feat(invalid): add feature            # Scope not in commit_scopes.txt
+Feat(loader): add feature             # Type must be lowercase
+feat(loader): Add feature             # Description must start lowercase
 ```
 
 ### Exit status

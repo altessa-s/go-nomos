@@ -120,6 +120,6 @@ jobs:
               echo "Examples:"
               echo "  feat(loader): add a JSON backend"
               echo "  fix(loader/secrets): keep quoted placeholders"
-              echo "  docs(README): update examples"
+              echo "  docs(loader): update examples"
               exit 1
           fi

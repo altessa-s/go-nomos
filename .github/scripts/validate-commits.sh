@@ -216,7 +216,7 @@ main() {
         echo "Examples:"
         echo "  feat(loader): add a JSON backend"
         echo "  fix(loader/secrets): keep placeholders in quoted values"
-        echo "  docs(README): update installation instructions"
+        echo "  docs(loader): update installation instructions"
         echo ""
         echo "Valid types: $VALID_TYPES"
         echo "Valid scopes: See commit_scopes.txt"

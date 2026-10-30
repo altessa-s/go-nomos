@@ -2,11 +2,6 @@
 # Use these scopes in conventional commits: type(scope): description
 # Example: fix(loader): apply defaults to map elements created by the environment
 
-# Root-level scopes
-deps                        # Dependency management
-README                      # Root README
-docs                        # Documentation
-
 # Packages
 loader                      # Multi-source configuration loader
 loader/backend              # Backend interfaces and the YAML/TOML backends
