@@ -8,7 +8,6 @@ package loader
 
 import (
 	"context"
-	"os"
 	"path/filepath"
 	"time"
 
@@ -77,7 +76,7 @@ type options struct {
 // Otherwise, the defaultPath is used.
 func WithPathOnEnvKey(envKey, defaultPath string) Option {
 	return func(opt *options) {
-		if cfgFile, ok := os.LookupEnv(envKey); ok {
+		if cfgFile, ok := lookupEnv(envKey); ok {
 			WithPath(cfgFile)(opt)
 			return
 		}

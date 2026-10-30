@@ -6,6 +6,7 @@ package loader
 
 import (
 	"context"
+	"maps"
 	"reflect"
 	"slices"
 
@@ -137,18 +138,14 @@ func unionPresence(a, b *presence) *presence {
 	}
 	if a.fields != nil || b.fields != nil {
 		out.fields = make(map[int]*presence, max(len(a.fields), len(b.fields)))
-		for i, c := range a.fields {
-			out.fields[i] = c
-		}
+		maps.Copy(out.fields, a.fields)
 		for i, c := range b.fields {
 			out.fields[i] = unionPresence(out.fields[i], c)
 		}
 	}
 	if a.entries != nil || b.entries != nil {
 		out.entries = make(map[any]*presence, max(len(a.entries), len(b.entries)))
-		for k, c := range a.entries {
-			out.entries[k] = c
-		}
+		maps.Copy(out.entries, a.entries)
 		for k, c := range b.entries {
 			out.entries[k] = unionPresence(out.entries[k], c)
 		}

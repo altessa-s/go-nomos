@@ -43,6 +43,18 @@ const (
 // ErrInvalidConfig is returned when the config parameter is invalid.
 var ErrInvalidConfig = errors.New("config must be a struct pointer")
 
+// lookupEnv, getenv and envValues are the loader's only reads of the process
+// environment.
+func lookupEnv(key string) (string, bool) {
+	return os.LookupEnv(key)
+}
+
+// getenv returns the value of the variable key, empty when it is unset.
+func getenv(key string) string {
+	value, _ := lookupEnv(key)
+	return value
+}
+
 // envValues returns the environment variables carrying prefix, keyed by the
 // rest of the name as it is spelled, with their values verbatim. Their $VAR
 // references are expanded (see expandEnvValue) and their secret placeholders
@@ -127,7 +139,7 @@ func unwrapEnvValueWithDepthAndOriginal(value, original string, depth int, visit
 
 		if visited[key] {
 			// Circular reference detected - return current value if env var not set
-			envValue := os.Getenv(key)
+			envValue := getenv(key)
 			if envValue == "" {
 				return value
 			}
@@ -138,7 +150,7 @@ func unwrapEnvValueWithDepthAndOriginal(value, original string, depth int, visit
 			return value // Return current value for complex expressions
 		}
 
-		envValue := os.Getenv(key)
+		envValue := getenv(key)
 		if envValue == "" {
 			return "" // Return empty string for undefined variables
 		}
@@ -157,7 +169,7 @@ func unwrapEnvValueWithDepthAndOriginal(value, original string, depth int, visit
 		}
 		// Non-strict: undefined and defined-but-empty are indistinguishable
 		// and both result in $VAR being dropped (substituted with "").
-		return os.Getenv(key), tokenSubstitute, nil
+		return getenv(key), tokenSubstitute, nil
 	})
 
 	// Recursively process the result if it changed and we haven't hit max depth
@@ -293,7 +305,7 @@ func assertStructPointer(conf any) error {
 // A $__secret{namespace:key} placeholder is kept as it is for the secrets
 // expander.
 func substituteEnvVariables(input string) string {
-	return restoreSecretPlaceholders(os.Expand(protectSecretPlaceholders(input), os.Getenv))
+	return restoreSecretPlaceholders(os.Expand(protectSecretPlaceholders(input), getenv))
 }
 
 // protectSecretPlaceholders replaces the start of every secret placeholder
@@ -338,7 +350,7 @@ func unwrapEnvValueStrictWithDepth(value, original string, depth int, visited ma
 		if visited[key] {
 			return "", tokenKeepLiteral, nil
 		}
-		envValue, ok := os.LookupEnv(key)
+		envValue, ok := lookupEnv(key)
 		if !ok {
 			return "", tokenSubstitute, fmt.Errorf("%w: $%s", ErrUndefinedEnvVar, key)
 		}
@@ -361,7 +373,7 @@ func unwrapEnvValueStrictWithDepth(value, original string, depth int, visited ma
 // (a reference cycle) is not expanded again.
 func unwrapWholeEnvRefStrict(value, original string, depth int, visited map[string]bool) (string, error) {
 	key := value[1:]
-	envValue, ok := os.LookupEnv(key)
+	envValue, ok := lookupEnv(key)
 	if !ok {
 		return "", fmt.Errorf("%w: $%s", ErrUndefinedEnvVar, key)
 	}
@@ -387,7 +399,7 @@ func unwrapWholeEnvRefStrict(value, original string, depth int, visited map[stri
 func substituteEnvVariablesStrict(input string) (string, error) {
 	var firstErr error
 	result := os.Expand(protectSecretPlaceholders(input), func(key string) string {
-		val, ok := os.LookupEnv(key)
+		val, ok := lookupEnv(key)
 		if !ok && firstErr == nil {
 			firstErr = fmt.Errorf("%w: ${%s}", ErrUndefinedEnvVar, key)
 		}

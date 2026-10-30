@@ -67,10 +67,18 @@ func (cf *loadState) findFieldByPath(fieldPath string) *field {
 	return nil
 }
 
+// pathResolver is what a pathWalk needs from the load: struct field lookup by
+// environment name and the record of slices and maps the environment grows.
+type pathResolver interface {
+	findFieldIndex(structValue reflect.Value, fieldName string, fixed bool) (reflect.Value, []int, bool)
+	findStructFieldRecursive(structType reflect.Type, fieldName string, fixed bool) (reflect.StructField, bool)
+	noteEnvGrowth(v reflect.Value, n int, steps []pathStep)
+}
+
 // pathWalk is the state of findFieldByPath while it walks a path from the
 // configuration root.
 type pathWalk struct {
-	cf        *loadState
+	cf        pathResolver
 	fieldPath string
 	current   reflect.Value
 	// steps records the steps taken from the configuration root.
@@ -463,7 +471,7 @@ func (cf *loadState) setNestedFieldValue(ctx context.Context, fld *field, pathPa
 
 	// Navigate through the path
 	for i, part := range pathParts {
-		currentValue = cf.dereferencePointer(currentValue)
+		currentValue = dereferencePointer(currentValue)
 
 		if currentValue.Kind() == reflect.Map {
 			return cf.setNestedMapEntry(ctx, currentValue, pathParts[i:], value, steps)
@@ -607,7 +615,7 @@ func (cf *loadState) findFieldIndex(structValue reflect.Value, fieldName string,
 	}
 	v := structValue
 	for _, i := range sf.Index {
-		v = cf.dereferencePointer(v).Field(i)
+		v = dereferencePointer(v).Field(i)
 	}
 	return v, sf.Index, true
 }
@@ -663,7 +671,7 @@ func (cf *loadState) findStructFieldIn(
 }
 
 // dereferencePointer dereferences a pointer value, initializing it if nil.
-func (cf *loadState) dereferencePointer(value reflect.Value) reflect.Value {
+func dereferencePointer(value reflect.Value) reflect.Value {
 	if value.Kind() == reflect.Pointer {
 		if value.IsNil() {
 			value.Set(reflect.New(value.Type().Elem()))
