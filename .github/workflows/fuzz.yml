@@ -1,0 +1,71 @@
+name: Fuzz
+
+# Fuzzing is a soak, not a gate. Every fuzz target already runs on each push as
+# an ordinary test over its seed corpus (`go test ./...` executes the f.Add
+# inputs), so this workflow exists for the part that needs time: mutation.
+on:
+  schedule:
+    # Nightly, off-peak.
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+    inputs:
+      fuzztime:
+        description: "Per-target fuzz budget (Go duration, e.g. 2m)"
+        default: "2m"
+      fuzzpkg:
+        description: "Package pattern to fuzz (e.g. ./loader/secrets)"
+        default: "./..."
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    name: Fuzz
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+          # This job manages its own cache: the interesting artifact is the
+          # generated corpus under GOCACHE/fuzz, and two actions writing
+          # overlapping paths would race to save it.
+          cache: false
+
+      # The corpus Go generates lives in the build cache, not in the repo.
+      # Without restoring it every night restarts from the seeds and re-derives
+      # the same shallow inputs; with it, coverage compounds across runs. The
+      # run_id in the key makes every run save a fresh entry, and the prefix
+      # restore-key picks up the most recent one.
+      - name: Restore fuzz corpus
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ github.workspace }}/.gocache/fuzz
+          key: fuzz-corpus-${{ github.run_id }}
+          restore-keys: fuzz-corpus-
+
+      - name: Fuzz
+        env:
+          GOCACHE: ${{ github.workspace }}/.gocache
+          FUZZTIME: ${{ inputs.fuzztime || '2m' }}
+          FUZZPKG: ${{ inputs.fuzzpkg || './...' }}
+        run: make fuzz FUZZTIME="$FUZZTIME" FUZZPKG="$FUZZPKG"
+
+      # A crash makes Go write the minimized reproducer to the package's
+      # testdata/fuzz/<Target>/ directory. Uploading it is what turns a red
+      # nightly into a file someone can commit as a permanent regression seed.
+      - name: Upload crashers
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: fuzz-crashers
+          path: "**/testdata/fuzz/**"
+          if-no-files-found: ignore
+          retention-days: 30
