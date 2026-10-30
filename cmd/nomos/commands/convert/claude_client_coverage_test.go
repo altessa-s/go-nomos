@@ -96,6 +96,18 @@ func TestClaudeClient_ThinkingBlockFirst(t *testing.T) {
 	require.Equal(t, map[string]string{"A": "desc"}, got)
 }
 
+// The client decodes with encoding/json v1 semantics, which Go 1.27 keeps on
+// the v2 engine: a duplicated description key resolves to its last value
+// instead of failing the whole section.
+func TestClaudeClient_DuplicateDescriptionKey(t *testing.T) {
+	t.Parallel()
+
+	c := newStubClaudeClient(t, respond(http.StatusOK, textResponse(`{"A":"first","A":"second"}`)))
+	got, err := c.Describe(t.Context(), map[string]string{"A": "type: string"}, "A")
+	require.NoError(t, err)
+	require.Equal(t, map[string]string{"A": "second"}, got)
+}
+
 func TestClaudeClient_Errors(t *testing.T) {
 	t.Parallel()
 
