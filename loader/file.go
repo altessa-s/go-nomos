@@ -241,21 +241,8 @@ func (fs *files) All() iter.Seq[*file] {
 		}
 		fs.mx.RUnlock()
 
-		slices.SortFunc(ordered, func(a, b *file) int {
-			if a.name != b.name {
-				if a.name < b.name {
-					return -1
-				}
-				return 1
-			}
-			if a.path < b.path {
-				return -1
-			}
-			if a.path > b.path {
-				return 1
-			}
-			return 0
-		})
+		// Files are keyed by name, so names never tie.
+		slices.SortFunc(ordered, func(a, b *file) int { return strings.Compare(a.name, b.name) })
 
 		for _, f := range ordered {
 			if !yield(f) {

@@ -92,14 +92,11 @@ func (cf *loadState) computeFieldEnvNames(sf reflect.StructField) fieldEnvNames 
 	}
 }
 
-// fieldNames returns the environment naming of a field: from the cache of
-// the struct type declaring it when known, else computed.
+// fieldNames returns the environment naming of a field of the field list,
+// from the cache of the struct type declaring it: every such field has an
+// owner.
 func (cf *loadState) fieldNames(fld *field) *fieldEnvNames {
-	if fld.owner != nil && len(fld.field.Index) > 0 {
-		return &cf.structEnvNames(fld.owner)[fld.field.Index[len(fld.field.Index)-1]]
-	}
-	names := cf.computeFieldEnvNames(fld.field)
-	return &names
+	return &cf.structEnvNames(fld.owner)[fld.field.Index[len(fld.field.Index)-1]]
 }
 
 // computeLevelNames computes the level names of the struct field (see
@@ -493,8 +490,5 @@ func isCollectionType(t reflect.Type) bool {
 
 // isStructType reports whether t is a struct or a pointer to one.
 func isStructType(t reflect.Type) bool {
-	if t == nil {
-		return false
-	}
 	return indirectType(t).Kind() == reflect.Struct
 }

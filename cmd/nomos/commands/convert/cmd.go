@@ -188,9 +188,6 @@ func (c *Command) configure() {
 	// Set pre-run hook for validation
 	c.PersistentPreRunE = c.preRun
 
-	// Set post-run hook for cleanup
-	c.PersistentPostRun = c.postRun
-
 	c.RunE = c.run
 }
 
@@ -208,9 +205,6 @@ func (c *Command) preRun(cmd *cobra.Command, _ []string) error {
 
 	return nil
 }
-
-// postRun performs cleanup after command execution.
-func (c *Command) postRun(_ *cobra.Command, _ []string) {}
 
 // run executes the convert command.
 func (c *Command) run(cmd *cobra.Command, args []string) error {

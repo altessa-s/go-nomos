@@ -84,11 +84,9 @@ func (conv *ConfigToMarkdownConverter) ConvertDataContext(ctx context.Context, d
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	// Render fails on a context ended at any point of the rendering.
 	out, err := (&conversion.Markdown{}).Render(ctx, data, conv.describer)
 	if err != nil {
-		return err
-	}
-	if err := ctx.Err(); err != nil {
 		return err
 	}
 	return writeOutput(ctx, toPath, out)

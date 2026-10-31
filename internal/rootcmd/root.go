@@ -16,8 +16,8 @@ import (
 	"github.com/altessa-s/go-atlas-core/runtime/appinfo"
 )
 
-// Command wraps a [cobra.Command] with shared pre-run and post-run hooks
-// including panic recovery.
+// Command wraps a [cobra.Command] with the shared root configuration. [Run]
+// recovers panics from the whole command tree.
 type Command struct {
 	*cobra.Command
 }
@@ -62,35 +62,11 @@ func (c *Command) configure(subcommands []*cobra.Command) {
 		{{with .Name}}{{printf "%s " .}}{{end}}{{printf "version %s" .Version}}
 	`))
 
-	// Set pre-run hook with panic recovery wrapper
-	c.PersistentPreRunE = c.preRunWithRecovery
-
-	// Set post-run hook for cleanup
-	c.PersistentPostRun = c.postRun
-
 	// Add subcommands
 	if len(subcommands) > 0 {
 		c.AddCommand(subcommands...)
 	}
 }
-
-// preRunWithRecovery wraps preRun with panic recovery mechanism.
-func (c *Command) preRunWithRecovery(cmd *cobra.Command, args []string) (err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Panic recovered: %v\n", r)
-			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Stack trace:\n%s\n", debug.Stack())
-			err = fmt.Errorf("panic recovered: %v", r)
-		}
-	}()
-	return c.preRun(cmd, args)
-}
-
-// preRun performs common initialization before any command execution.
-func (c *Command) preRun(_ *cobra.Command, _ []string) error { return nil }
-
-// postRun performs cleanup after command execution.
-func (c *Command) postRun(_ *cobra.Command, _ []string) {}
 
 // Run creates and executes a command, recovering panics from the command tree.
 func Run(ctx context.Context, use string, args []string, opts ...Option) (err error) {
