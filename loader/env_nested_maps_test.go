@@ -69,21 +69,21 @@ func TestLoad_EnvMapOfMapsEntries(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name+"/new keys", func(t *testing.T) {
-			t.Setenv(tt.varSet+"__team__owner", "radar")
+			t.Setenv(tt.varSet+"__team__owner", "myapp")
 			t.Setenv(tt.varSet+"__team__tier", "1")
 
 			cfg := loadNestedMaps(t, &nestedMapsConfig{})
-			require.Equal(t, map[string]map[string]string{"team": {"owner": "radar", "tier": "1"}}, tt.get(cfg))
+			require.Equal(t, map[string]map[string]string{"team": {"owner": "myapp", "tier": "1"}}, tt.get(cfg))
 		})
 		t.Run(tt.name+"/existing keys", func(t *testing.T) {
-			t.Setenv(tt.varSet+"__team__owner", "radar")
+			t.Setenv(tt.varSet+"__team__owner", "myapp")
 			t.Setenv(tt.varSet+"__other__k", "v")
 
 			cfg := &nestedMapsConfig{}
 			tt.preset(cfg, map[string]map[string]string{"team": {"owner": "old", "keep": "x"}})
 			loadNestedMaps(t, cfg)
 			require.Equal(t, map[string]map[string]string{
-				"team":  {"owner": "radar", "keep": "x"},
+				"team":  {"owner": "myapp", "keep": "x"},
 				"other": {"k": "v"},
 			}, tt.get(cfg))
 		})
@@ -107,12 +107,12 @@ func TestLoad_EnvMapOfMapsInSection(t *testing.T) {
 // TestLoad_EnvMapOfMapsCustomDelimiter checks map of maps entries with a
 // custom section delimiter.
 func TestLoad_EnvMapOfMapsCustomDelimiter(t *testing.T) {
-	t.Setenv("NMAP_LABELS--team--owner", "radar")
+	t.Setenv("NMAP_LABELS--team--owner", "myapp")
 	t.Setenv("NMAP_NM_TAGGED--team--tier", "1")
 	t.Setenv("NMAP_SECTION--DEEP--x--y--z", "3")
 
 	cfg := loadNestedMaps(t, &nestedMapsConfig{}, loader.WithEnvSectionDelimiter("--"))
-	require.Equal(t, map[string]map[string]string{"team": {"owner": "radar"}}, cfg.Labels)
+	require.Equal(t, map[string]map[string]string{"team": {"owner": "myapp"}}, cfg.Labels)
 	require.Equal(t, map[string]map[string]string{"team": {"tier": "1"}}, cfg.Tagged)
 	require.NotNil(t, cfg.Section)
 	require.Equal(t, map[string]map[string]map[string]int{"x": {"y": {"z": 3}}}, cfg.Section.Deep)
