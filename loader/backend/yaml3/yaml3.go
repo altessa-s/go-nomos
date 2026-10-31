@@ -33,6 +33,10 @@ func (b *Backend) FileExtensions() []string {
 
 // Decode decodes the YAML data from the reader.
 func (b *Backend) Decode(reader io.Reader, in any) error {
+	reader, err := readChecked(reader)
+	if err != nil {
+		return err
+	}
 	decoder := yaml.NewDecoder(reader)
 	return decoder.Decode(in)
 }

@@ -41,6 +41,9 @@ func (b *Backend) DecodeKeys(reader io.Reader) (backend.KeyNode, error) {
 	if err := yaml.NewDecoder(reader).Decode(&doc); err != nil && !errors.Is(err, io.EOF) {
 		return nil, err
 	}
+	if err := checkMappings(&doc); err != nil {
+		return nil, err
+	}
 	return &keyNode{node: &doc}, nil
 }
 

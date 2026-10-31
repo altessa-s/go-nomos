@@ -5,6 +5,7 @@
 package yaml3
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"strings"
@@ -29,6 +30,12 @@ const (
 	// overflow them. Counts are int64 on every platform; two capped counts
 	// add up to at most 2^41, so min(a+b, expansionCap) never overflows.
 	expansionCap int64 = 1 << 40
+	// maxKeyComparisons bounds the key pairs yaml.v3 compares while it
+	// decodes a document: it checks every pair of keys of a mapping, each
+	// time an alias makes it decode the mapping again.
+	maxKeyComparisons int64 = 100_000_000
+	// nodesPerEntry is the key and value nodes of a mapping entry.
+	nodesPerEntry = 2
 )
 
 var (
@@ -36,7 +43,105 @@ var (
 	errAliasCycle = errors.New("yaml: anchor value contains itself")
 	// errExcessiveAliasing reports more alias expansion than yaml.v3 allows.
 	errExcessiveAliasing = errors.New("yaml: document contains excessive aliasing")
+	// errDuplicateMappingKey reports a mapping with a repeated key. It does not name
+	// the key, which may be sensitive.
+	errDuplicateMappingKey = errors.New("yaml: mapping contains a duplicate key")
+	// errExcessiveMappingWork reports mappings whose key comparisons exceed
+	// maxKeyComparisons.
+	errExcessiveMappingWork = errors.New("yaml: document mappings are too large")
 )
+
+// readChecked reads the document of reader, rejects it when checkMappings
+// does, and returns a reader over its content for yaml.v3 to decode.
+func readChecked(reader io.Reader) (io.Reader, error) {
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, err
+	}
+	var doc yaml.Node
+	if err := yaml.NewDecoder(bytes.NewReader(data)).Decode(&doc); err != nil {
+		if errors.Is(err, io.EOF) {
+			return bytes.NewReader(data), nil
+		}
+		return nil, err
+	}
+	if err := checkMappings(&doc); err != nil {
+		return nil, err
+	}
+	return bytes.NewReader(data), nil
+}
+
+// checkMappings rejects, in linear time, a mapping with two keys of the same
+// kind and value, which yaml.v3 finds by comparing every pair of keys, and a
+// document whose mappings would make yaml.v3 compare more than
+// maxKeyComparisons key pairs.
+func checkMappings(doc *yaml.Node) error {
+	g := &mappingGuard{costs: make(map[*yaml.Node]int64), inProgress: make(map[*yaml.Node]bool)}
+	cost, err := g.cost(doc)
+	if err != nil {
+		return err
+	}
+	if cost > maxKeyComparisons {
+		return errExcessiveMappingWork
+	}
+	return nil
+}
+
+// mappingKey identifies a mapping key as yaml.v3's duplicate check does.
+type mappingKey struct {
+	kind  yaml.Kind
+	value string
+}
+
+// mappingGuard measures the key comparisons of a node tree, aliases followed.
+type mappingGuard struct {
+	costs      map[*yaml.Node]int64
+	inProgress map[*yaml.Node]bool
+}
+
+// cost returns the key pairs yaml.v3 compares to decode n, capped at
+// expansionCap, and fails on a mapping with a duplicate key. An alias cycle
+// adds nothing: decoding reports it.
+func (g *mappingGuard) cost(n *yaml.Node) (int64, error) {
+	if n == nil {
+		return 0, nil
+	}
+	if c, ok := g.costs[n]; ok {
+		return c, nil
+	}
+	if g.inProgress[n] {
+		return 0, nil
+	}
+	g.inProgress[n] = true
+	defer delete(g.inProgress, n)
+
+	var total int64
+	if n.Kind == yaml.MappingNode {
+		pairs := int64(len(n.Content) / nodesPerEntry)
+		total = min(pairs*(pairs-1)/nodesPerEntry, expansionCap)
+		seen := make(map[mappingKey]struct{}, pairs)
+		for i := 0; i+1 < len(n.Content); i += nodesPerEntry {
+			key := mappingKey{kind: n.Content[i].Kind, value: n.Content[i].Value}
+			if _, dup := seen[key]; dup {
+				return 0, errDuplicateMappingKey
+			}
+			seen[key] = struct{}{}
+		}
+	}
+	children := n.Content
+	if n.Kind == yaml.AliasNode {
+		children = []*yaml.Node{n.Alias}
+	}
+	for _, child := range children {
+		c, err := g.cost(child)
+		if err != nil {
+			return 0, err
+		}
+		total = min(total+c, expansionCap)
+	}
+	g.costs[n] = total
+	return total, nil
+}
 
 // CheckDocument parses the first YAML document of content into nodes and
 // rejects what yaml.v3 would refuse to decode for structural reasons: an
@@ -50,6 +155,9 @@ func (b *Backend) CheckDocument(content string) error {
 		if errors.Is(err, io.EOF) {
 			return nil
 		}
+		return err
+	}
+	if err := checkMappings(&doc); err != nil {
 		return err
 	}
 

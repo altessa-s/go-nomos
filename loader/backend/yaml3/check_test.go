@@ -53,9 +53,7 @@ func TestDecodeRejectsDuplicateKeysLinearly(t *testing.T) {
 			return b.Decode(strings.NewReader(doc), &out)
 		},
 		"DecodeStrict": func(doc string) error {
-			var out struct {
-				Key int `yaml:"hiddenkey"`
-			}
+			var out map[string]any
 			return b.DecodeStrict(strings.NewReader(doc), &out)
 		},
 		"DecodeKeys": func(doc string) error {

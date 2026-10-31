@@ -30,9 +30,13 @@ var unknownFieldMsg = regexp.MustCompile(`^line \d+: field .* not found in type 
 // interfaces and types implementing yaml.Unmarshaler is free-form. A custom unmarshaler that calls node.Decode decodes
 // its value without the check.
 func (b *Backend) DecodeStrict(reader io.Reader, in any) error {
+	reader, err := readChecked(reader)
+	if err != nil {
+		return err
+	}
 	decoder := yaml.NewDecoder(reader)
 	decoder.KnownFields(true)
-	err := decoder.Decode(in)
+	err = decoder.Decode(in)
 	if te, ok := errors.AsType[*yaml.TypeError](err); ok && hasUnknownField(te) {
 		return fmt.Errorf("%w: %w", backend.ErrUnknownField, err)
 	}
