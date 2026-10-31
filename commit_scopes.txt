@@ -10,18 +10,18 @@ README                      # Root README
 docs                        # Documentation
 
 # Packages
-loader                      # Multi-source configuration loader
-loader/backend              # Backend interfaces and the YAML/TOML backends
-loader/backend/yaml3        # YAML backend and includes
-loader/backend/toml         # TOML backend
-loader/secrets              # Secret placeholder expansion
-validation                  # Validation helpers for configuration schemas
-cmd/nomos                   # nomos configuration converter CLI
-cmd/nomos/commands          # CLI command assembly
-cmd/nomos/commands/convert  # Configuration conversion adapters
-internal/conversion         # Pure configuration transformations
-internal/architecture       # Dependency and package-layout checks
-internal/rootcmd            # Shared Cobra root command
+loader                       # Multi-source configuration loader
+loader/backend               # Backend interfaces and the YAML/TOML backends
+loader/backend/yaml3         # YAML backend and includes
+loader/backend/toml          # TOML backend
+loader/secrets               # Secret placeholder expansion
+validation                   # Validation helpers for configuration schemas
+cmd/nomos                    # nomos configuration converter CLI
+cmd/nomos/commands           # CLI command assembly
+cmd/nomos/commands/convert   # Configuration conversion adapters
+internal/conversion          # Pure configuration transformations
+internal/architecture        # Dependency and package-layout checks
+internal/rootcmd             # Shared Cobra root command
 
 # Tooling
 devtools                    # Development tool dependencies
