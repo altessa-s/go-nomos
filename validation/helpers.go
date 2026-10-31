@@ -47,7 +47,7 @@ func ErrorsToFlatMap(in validation.Errors) validation.Errors {
 //
 // Example output:
 //
-//	Configuration in not valid:
+//	Configuration is not valid:
 //	  - server.port: invalid port number
 //	  - database.host: cannot be blank
 func PrettyError(err error) string {
@@ -60,7 +60,7 @@ func PrettyError(err error) string {
 		for f, e := range verrs {
 			strs = append(strs, fmt.Sprintf("  - %s: %v", f, e))
 		}
-		return "Configuration in not valid:\n" +
+		return "Configuration is not valid:\n" +
 			strings.Join(strs, "\n")
 	}
 	return err.Error()

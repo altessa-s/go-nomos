@@ -67,6 +67,7 @@ func TestPrettyError(t *testing.T) {
 
 		lines := strings.Split(got, "\n")
 		require.Len(t, lines, 3)
+		require.Equal(t, "Configuration is not valid:", lines[0])
 		require.Contains(t, got, "  - server.port: invalid port")
 		require.Contains(t, got, "  - host: cannot be blank")
 	})
