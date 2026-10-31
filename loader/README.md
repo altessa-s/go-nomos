@@ -49,8 +49,8 @@ in name order (`HOSTS[0]`) wins whatever the order of the process environment. A
 `env:"LIST__0"` on a string and `env:"LIST"` on a slice, `APP_LIST__0` sets the string. Both spellings are accepted because the struct tag and the Go
 field name differ for such fields and services already use either.
 
-`APP_` at the start of an `env` tag is a placeholder for the configured prefix: with `WithEnvPrefix("RADAR")`, ``AppName string `env:"APP_NAME"` ``
-reads `RADAR_NAME`. To read `RADAR_APP_NAME` instead, tag the field `env:"RADAR_APP_NAME"`. A tag that is only `APP_` or the prefix names itself, and
+`APP_` at the start of an `env` tag is a placeholder for the configured prefix: with `WithEnvPrefix("MYAPP")`, ``AppName string `env:"APP_NAME"` ``
+reads `MYAPP_NAME`. To read `MYAPP_APP_NAME` instead, tag the field `env:"MYAPP_APP_NAME"`. A tag that is only `APP_` or the prefix names itself, and
 `env:"-"` keeps a value field out of the environment (slice elements and map values excepted, where `env` tags are ignored).
 
 An error about a variable names it and never quotes its value, which may be an expanded secret: `environment variable APP_PORT: failed to parse an

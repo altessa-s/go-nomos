@@ -60,8 +60,8 @@
 // element, and a variable an env tag names whole belongs to that field only.
 //
 // "APP_" at the start of an env tag stands for the configured prefix: with
-// prefix "RADAR", env:"APP_NAME" reads RADAR_NAME, and env:"RADAR_APP_NAME"
-// reads RADAR_APP_NAME. env:"-" keeps a value field out of the environment.
+// prefix "MYAPP", env:"APP_NAME" reads MYAPP_NAME, and env:"MYAPP_APP_NAME"
+// reads MYAPP_APP_NAME. env:"-" keeps a value field out of the environment.
 // Errors name a variable and never quote its value, which may be a secret.
 //
 // A slice index must not be negative, and an index past the slice may grow it
