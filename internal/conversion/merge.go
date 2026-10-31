@@ -52,9 +52,16 @@ func mergeInto(dst, src map[string]any) {
 	for key, value := range src {
 		a, aOK := dst[key].(map[string]any)
 		b, bOK := value.(map[string]any)
-		if aOK && bOK {
+		switch {
+		case aOK && bOK:
 			mergeInto(a, b)
-		} else {
+		case bOK:
+			// A copy, so a later file merges into it rather than into the
+			// map the reader returned.
+			c := make(map[string]any, len(b))
+			mergeInto(c, b)
+			dst[key] = c
+		default:
 			dst[key] = value
 		}
 	}

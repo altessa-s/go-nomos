@@ -208,7 +208,10 @@ func (conv *Markdown) processValueWithType(result map[string]variableInfo, key s
 				if i > 0 {
 					builder.WriteByte(',')
 				}
-				fmt.Fprintf(&builder, "%v", v.Index(i).Interface())
+				// A null element is empty, as a null value is.
+				if elem := v.Index(i).Interface(); elem != nil {
+					fmt.Fprintf(&builder, "%v", elem)
+				}
 			}
 			builder.WriteByte(']')
 			arrayValue = builder.String()
