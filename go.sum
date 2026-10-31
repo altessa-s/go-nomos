@@ -4,10 +4,10 @@ github.com/MakeNowJust/heredoc v1.0.0 h1:cXCdzVdstXyiTqTvfqk9SDHpKNjxuom+DOlyEeQ
 github.com/MakeNowJust/heredoc v1.0.0/go.mod h1:mG5amYoWBHf8vpLOuehzbGGw0EHxpZZ6lCpQ4fNJ8LE=
 github.com/adrg/postcode v0.1.0 h1:fnzSHovyCtUM9uNf9lGiEhu0qsZNna+ZF09GACZUQfU=
 github.com/adrg/postcode v0.1.0/go.mod h1:GzDP6PpWd+pb/JjxvpZpq8T60lsJmhzn6N5y99J+/dY=
-github.com/altessa-s/go-atlas-core v0.2.0 h1:ldDqdjOtm1rPiByVwhijAFx6Ss4IRKnpZ61dlx0y/T0=
-github.com/altessa-s/go-atlas-core v0.2.0/go.mod h1:xOKuQewGd1wO3llziO2K6CUUtr3FHGnJHUMRUIOCaHw=
-github.com/altessa-s/go-atlas-net v0.2.0 h1:VM2EoAgJNEfZblMNiMNEelhjk+Xi8NMWSg/Wt+VpA+4=
-github.com/altessa-s/go-atlas-net v0.2.0/go.mod h1:5hPPUgEtZiphdwl0OlucqE9q/2JlYn2D4LqMx3ykTZg=
+github.com/altessa-s/go-atlas-core v0.3.1 h1:/xSTFoK6pka/x+bJ1mqHHkEFOOhpRN/2gOZY3mZYUIQ=
+github.com/altessa-s/go-atlas-core v0.3.1/go.mod h1:xOKuQewGd1wO3llziO2K6CUUtr3FHGnJHUMRUIOCaHw=
+github.com/altessa-s/go-atlas-net v0.2.1 h1:9ueKILfiP/x7dYjekpz2Wlabmvagp9XN8lrqMxpsby8=
+github.com/altessa-s/go-atlas-net v0.2.1/go.mod h1:hxckjfE7N3z/tWbDi1ychR66dG1Dy47XNVJ3Z295Z0I=
 github.com/altessa-s/ozzo-rules v1.16.0 h1:mJzL3NtaZABm8ksskQHqf77k1U2X9xwOfxFi6cQey1E=
 github.com/altessa-s/ozzo-rules v1.16.0/go.mod h1:aPGlyfaTaoJsOMitbdf5Dd408bvGe9/TP4hB5CmtPAs=
 github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 h1:DklsrG3dyBCFEj5IhUbnKptjxatkF07cF2ak3yi77so=
