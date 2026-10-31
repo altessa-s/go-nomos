@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+version: 2
+
+project_name: nomos
+
+builds:
+  - id: nomos
+    main: ./cmd/nomos
+    binary: nomos
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    flags:
+      - -trimpath
+    ldflags:
+      - >-
+        -s -w
+        -X github.com/altessa-s/go-atlas-core/runtime/appinfo.Name=nomos
+        -X github.com/altessa-s/go-atlas-core/runtime/appinfo.Version={{ .Version }}
+        -X github.com/altessa-s/go-atlas-core/runtime/appinfo.Commit={{ .Commit }}
+        -X github.com/altessa-s/go-atlas-core/runtime/appinfo.BuildTime={{ .CommitDate }}
+
+archives:
+  - id: nomos
+    ids: [nomos]
+    name_template: "nomos_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - LICENSE
+      - COPYRIGHT
+      - src: cmd/nomos/README.md
+        strip_parent: true
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  use: github
+  format: "{{ .Message }}"
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\([[:word:]/-]+\))??!?:.+$'
+      order: 0
+    - title: Bug Fixes
+      regexp: '^.*?fix(\([[:word:]/-]+\))??!?:.+$'
+      order: 1
+    - title: Performance
+      regexp: '^.*?perf(\([[:word:]/-]+\))??!?:.+$'
+      order: 2
+    - title: Refactoring
+      regexp: '^.*?refactor(\([[:word:]/-]+\))??!?:.+$'
+      order: 3
+    - title: Documentation
+      regexp: '^.*?docs(\([[:word:]/-]+\))??!?:.+$'
+      order: 4
+    - title: Other
+      order: 999
+  filters:
+    exclude:
+      - '^(ci|chore|test)(\([^)]*\))?!?:'
+      - Merge pull request
+      - Merge branch
+
+release:
+  github:
+    owner: altessa-s
+    name: go-nomos
+  prerelease: auto
+  name_template: "{{.Tag}}"
