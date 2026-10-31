@@ -37,9 +37,11 @@ body:
         - loader/secrets
         - validation
         - cmd/nomos
+        - cmd/nomos/commands
+        - cmd/nomos/commands/convert
         - internal/conversion
-        - internal/rootcmd
         - internal/architecture
+        - internal/rootcmd
         - devtools
         - ci
         - new package

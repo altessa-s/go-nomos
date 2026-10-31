@@ -17,7 +17,7 @@ body:
       required: true
 
   - type: input
-    id: core-version
+    id: module-version
     attributes:
       label: go-nomos Version
       description: The version or commit SHA of go-nomos you are using.
@@ -38,9 +38,11 @@ body:
         - loader/secrets
         - validation
         - cmd/nomos
+        - cmd/nomos/commands
+        - cmd/nomos/commands/convert
         - internal/conversion
-        - internal/rootcmd
         - internal/architecture
+        - internal/rootcmd
         - devtools
         - ci
         - other

@@ -1,47 +1,48 @@
 # GitHub Actions scripts
 
-Scripts used by the repository workflows. Commit validation follows the shared go-atlas-core/go-atlas-net conventions, with go-nomos package scopes.
+## Commit messages
 
-## validate-commits.sh
+`validate-commit-message.sh` reads a complete message from stdin. The local `commit-msg` hook and CI use this same validator. It checks
+Conventional Commits (`type[(scope)][!]: description`), types, lowercase descriptions and scopes from [`commit_scopes.txt`](../../commit_scopes.txt).
+Only the scope lines of that file count; comment and blank lines name no scope. The `root` scope is forbidden; omit the scope for repository-wide
+changes. Breaking changes may use `!` before the colon.
 
-Validates `type[(scope)]: description` and checks optional scopes against [`commit_scopes.txt`](../../commit_scopes.txt). Supported types are `feat`,
-`fix`, `docs`, `style`, `refactor`, `test`, `chore`, `ci`, `perf`, and `build`. Descriptions must start with a lowercase letter. Merge, revert,
-auto-merge, and automated `build(deps)` / `chore(deps)` messages are skipped.
+Messages must describe the concrete change without filler, test results, coverage figures or validation summaries. Agent attribution, generation
+signatures and agent co-author trailers are forbidden. The validator rejects common report headings and attribution patterns, matching agent names
+as whole words only; reviewers check meaning and concision. Human co-author trailers and `BREAKING CHANGE:` explanations remain allowed.
 
-### Usage
+`validate-commits.sh` validates the complete message of every commit in a range. All failures fail CI. The only exemption is the subject of a
+merge git generates itself (`Merge branch|tag|remote-tracking branch '…'`, `Merge pull request #N from …`), as git flow merges releases and
+hotfixes; its body is checked like any other. Automated and revert commits use a conventional subject: Dependabot writes `build(deps): bump …`
+(see [`dependabot.yml`](../dependabot.yml)), which the `deps` scope covers, so it needs no exemption. PR titles use the same validator.
 
-```bash
-.github/scripts/validate-commits.sh
+## Usage
+
+```sh
+# Enable the local hook.
+git config core.hooksPath .githooks
+
+# Exercise validation rules and the local hook without creating commits.
+bash .github/scripts/test-commit-validation.sh
+
+# Validate one message.
+bash .github/scripts/validate-commit-message.sh < /tmp/commit-message
+
+# Validate a specific range.
+bash .github/scripts/validate-commits.sh origin/develop..HEAD
 ```
 
-Locally, the script fetches `origin/develop` and checks commits ahead of it, falling back to recent history. In pull requests it compares against
-`GITHUB_BASE_REF`; push events check the ten most recent commits. No commit is created or rewritten.
+Without a range, local runs compare against the merge base with `origin/develop`. CI supplies `BASE_SHA` and `HEAD_SHA` for the event. A new branch
+push without a base checks all commits reachable from the head. Missing references and invalid messages fail the check; history is never fetched
+implicitly or replaced with a shorter range.
 
-### Examples
+## Examples
 
 ```text
-feat(loader/backend): add a JSON backend
-fix(loader/secrets): preserve quoted placeholders
-test(internal/conversion): cover environment round trips
-docs: update installation instructions
-build(devtools): bump golangci-lint
+feat(loader): apply defaults to map elements
+fix(loader/secrets): keep quoted placeholders
+build(deps): bump golang.org/x/sys from 0.48.0 to 0.49.0
+build: pin the options generator
 ```
 
-Invalid messages:
-
-```text
-Add new feature                       # Missing type
-feat(invalid): add feature            # Scope not in commit_scopes.txt
-Feat(loader): add feature             # Type must be lowercase
-feat(loader): Add feature             # Description must start lowercase
-```
-
-### Exit status
-
-| Status | Meaning |
-|--------|---------|
-| `0` | All checked messages pass, no commits were found, or several commits failed outside a pull request (legacy warning mode). |
-| `1` | Invalid messages in a pull request, an invalid single commit, or a validation setup failure. |
-
-The [local commit hook](../../.githooks/commit-msg) uses the same scope list. It warns on an uppercase description while CI rejects it. Install the hook
-as described in [CONTRIBUTING.md](../../CONTRIBUTING.md); running the validator does not install hooks.
+Exit status is zero only when every message is valid (or the selected range is empty).

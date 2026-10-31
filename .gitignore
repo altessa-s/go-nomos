@@ -21,9 +21,7 @@
 go.work
 go.work.sum
 
-tools/codegen/optgen/optgen
 /bin/
-/plugin-sign
 build/
 dist/
 
@@ -49,6 +47,7 @@ vendor/
 
 tmp/
 /plans/
-cmd/nomos/nomos
 
+# Project binaries
 /nomos
+cmd/nomos/nomos
