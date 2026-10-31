@@ -124,6 +124,10 @@ test-all: ## Run tests with race detector, shuffle, and coverage
 	@go tool cover -func=coverage.out | tail -1
 	@rm -f coverage.out
 
+.PHONY: test-integration
+test-integration: ## Run unit and integration tests (build tag integration) with race detector and shuffle
+	@go test -race -shuffle=on -tags=integration ./...
+
 .PHONY: bench
 bench: ## Run all benchmarks
 	@go test -bench=. -benchmem -run=^$$ ./... 2>&1 | awk -F'\t' '\
@@ -217,7 +221,7 @@ dupl-check: ## Fail if dupl finds duplicates (ignoring generated files)
 	fi
 
 .PHONY: ci
-ci: lint test-all security-scan dupl-check ## Run full CI checks locally (lint, test, security, dupl)
+ci: lint test-all test-integration security-scan dupl-check ## Run full CI checks locally (lint, test, security, dupl)
 
 .PHONY: clean
 clean: ## Remove generated artifacts (coverage.out, bench.txt)
