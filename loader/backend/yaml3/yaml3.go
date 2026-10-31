@@ -5,6 +5,8 @@
 package yaml3
 
 import (
+	"errors"
+	"fmt"
 	"io"
 	"strings"
 
@@ -20,6 +22,9 @@ import (
 //
 //	p := parser.New(&yaml3.Backend{}, parser.WithPath("config.yaml"))
 type Backend struct{}
+
+// errEncode reports a value Encode cannot serialize.
+var errEncode = errors.New("yaml: cannot encode value")
 
 // StructTagName returns the struct tag name for YAML.
 func (b *Backend) StructTagName() string {
@@ -54,8 +59,14 @@ func (b *Backend) PrepareDocument(content string) string {
 	return "{}\n"
 }
 
-// Encode serializes a configuration value to a writer.
-func (b *Backend) Encode(w io.Writer, value any) error {
+// Encode serializes a configuration value to a writer. A value yaml.v3
+// cannot marshal, such as a channel, is an error, not a panic.
+func (b *Backend) Encode(w io.Writer, value any) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("%w: %v", errEncode, r)
+		}
+	}()
 	e := yaml.NewEncoder(w)
 	const indent = 4
 	e.SetIndent(indent)

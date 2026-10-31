@@ -5,6 +5,8 @@
 package toml
 
 import (
+	"errors"
+	"fmt"
 	"io"
 
 	"github.com/BurntSushi/toml"
@@ -44,7 +46,16 @@ func (b *Backend) ReusesSliceElements() bool { return true }
 
 var _ backend.SliceReuseDecoder = (*Backend)(nil)
 
-// Encode serializes a configuration value to a writer.
-func (b *Backend) Encode(w io.Writer, value any) error {
+// Encode serializes a configuration value to a writer. A value
+// BurntSushi/toml cannot encode, such as nil, is an error, not a panic.
+func (b *Backend) Encode(w io.Writer, value any) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("%w: %v", errEncode, r)
+		}
+	}()
 	return toml.NewEncoder(w).Encode(value)
 }
+
+// errEncode reports a value Encode cannot serialize.
+var errEncode = errors.New("toml: cannot encode value")
