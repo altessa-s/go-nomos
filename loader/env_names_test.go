@@ -55,12 +55,12 @@ func TestLoad_EnvLevelNames(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv("ENVNAME_"+tt.maxConns, "7")
-			t.Setenv("ENVNAME_"+tt.mongo+"__DATABASE", "radar")
+			t.Setenv("ENVNAME_"+tt.mongo+"__DATABASE", "myapp")
 			t.Setenv("ENVNAME_"+tt.fileStore+"__DATABASE", "files")
 
 			cfg := loadNames(t)
 			require.Equal(t, 7, cfg.MaxConns)
-			require.Equal(t, "radar", cfg.MongoDB.Database)
+			require.Equal(t, "myapp", cfg.MongoDB.Database)
 			require.NotNil(t, cfg.Store)
 			require.Equal(t, "files", cfg.Store.Database)
 		})

@@ -356,7 +356,7 @@ type precedenceConfig struct {
 func TestLoad_EnvPrecedenceBeforeSecrets(t *testing.T) {
 	manager := newSecretManager(t, map[string]string{"app:port": "8080", "app:timeout": "3s"})
 	t.Setenv("SECRETPRECTEST_FILE_STORE__DIR", "$__secret{app:missing}")
-	t.Setenv("SECRETPRECTEST_FILESTORE__DIR", "/srv/radar")
+	t.Setenv("SECRETPRECTEST_FILESTORE__DIR", "/srv/myapp")
 	t.Setenv("SECRETPRECTEST_FILE_STORE__PORT", "$__secret{app:missing}")
 	t.Setenv("SECRETPRECTEST_FILESTORE__PORT", "$__secret{app:port}")
 	t.Setenv("SECRETPRECTEST_TIMEOUT", "$__secret{app:timeout}")
@@ -364,7 +364,7 @@ func TestLoad_EnvPrecedenceBeforeSecrets(t *testing.T) {
 	cfg := &precedenceConfig{}
 	_, err := loader.New(&yaml3.Backend{}, loader.WithEnvPrefix("SECRETPRECTEST"), loader.WithSecretResolver(manager)).Load(cfg)
 	require.NoError(t, err)
-	require.Equal(t, "/srv/radar", cfg.FileStore.Dir)
+	require.Equal(t, "/srv/myapp", cfg.FileStore.Dir)
 	require.Equal(t, 8080, cfg.FileStore.Port)
 	require.Equal(t, 3*time.Second, cfg.Timeout)
 }
