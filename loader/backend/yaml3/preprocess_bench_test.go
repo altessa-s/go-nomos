@@ -73,3 +73,27 @@ after: include
 		}
 	}
 }
+
+func BenchmarkBackend_PreprocessIn(b *testing.B) {
+	dir, err := filepath.EvalSymlinks(b.TempDir())
+	if err != nil {
+		b.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "sub.yaml"), []byte("included: value\nnested:\n  key: value\n"), 0o600); err != nil {
+		b.Fatal(err)
+	}
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.Cleanup(func() { _ = root.Close() })
+	content := "main: config\nsection:\n  !include sub.yaml\n"
+	backend := &yaml3.Backend{}
+
+	b.ReportAllocs()
+	for b.Loop() {
+		if _, err := backend.PreprocessIn(content, dir, root, dir, 0); err != nil {
+			b.Fatalf("PreprocessIn error: %v", err)
+		}
+	}
+}

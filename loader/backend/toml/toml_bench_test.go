@@ -5,7 +5,9 @@
 package toml_test
 
 import (
+	"io"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -120,6 +122,71 @@ func BenchmarkBackend_DecodeStrict(b *testing.B) {
 		var cfg config
 		if err := backend.DecodeStrict(strings.NewReader(content), &cfg); err != nil {
 			b.Fatalf("DecodeStrict failed: %v", err)
+		}
+	}
+}
+
+type largeServer struct {
+	Host string `toml:"host"`
+	Port int    `toml:"port"`
+}
+
+type largeConfig struct {
+	Name    string                 `toml:"name"`
+	Servers []largeServer          `toml:"servers"`
+	ByName  map[string]largeServer `toml:"byName"`
+}
+
+// largeDocument returns a document with n array-of-tables elements and n
+// map tables.
+func largeDocument(n int) string {
+	var sb strings.Builder
+	sb.WriteString("name = \"svc\"\n")
+	for i := range n {
+		sb.WriteString("\n[[servers]]\nhost = \"h" + strconv.Itoa(i) + "\"\nport = " + strconv.Itoa(i) + "\n")
+	}
+	for i := range n {
+		sb.WriteString("\n[byName.s" + strconv.Itoa(i) + "]\nhost = \"h\"\nport = 1\n")
+	}
+	return sb.String()
+}
+
+func BenchmarkBackend_DecodeStrict_Large(b *testing.B) {
+	content := largeDocument(1000)
+	backend := &toml.Backend{}
+	b.ReportAllocs()
+	b.SetBytes(int64(len(content)))
+	for b.Loop() {
+		var cfg largeConfig
+		if err := backend.DecodeStrict(strings.NewReader(content), &cfg); err != nil {
+			b.Fatalf("DecodeStrict failed: %v", err)
+		}
+	}
+}
+
+func BenchmarkBackend_Decode_Large(b *testing.B) {
+	content := largeDocument(1000)
+	backend := &toml.Backend{}
+	b.ReportAllocs()
+	b.SetBytes(int64(len(content)))
+	for b.Loop() {
+		var cfg largeConfig
+		if err := backend.Decode(strings.NewReader(content), &cfg); err != nil {
+			b.Fatalf("Decode failed: %v", err)
+		}
+	}
+}
+
+func BenchmarkBackend_Encode(b *testing.B) {
+	backend := &toml.Backend{}
+	var cfg largeConfig
+	if err := backend.Decode(strings.NewReader(largeDocument(1000)), &cfg); err != nil {
+		b.Fatal(err)
+	}
+	b.ReportAllocs()
+	for b.Loop() {
+		if err := backend.Encode(io.Discard, cfg); err != nil {
+			b.Fatalf("Encode failed: %v", err)
 		}
 	}
 }
