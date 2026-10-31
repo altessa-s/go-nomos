@@ -99,9 +99,9 @@ func WithSubcommands(v ...*cobra.Command) Option {
 		if len(v) == 0 {
 			return
 		}
+		deduped := make([]*cobra.Command, 0, len(v))
 		{
 			seen := make(map[*cobra.Command]struct{}, len(v))
-			deduped := make([]*cobra.Command, 0, len(v))
 			for _, item := range v {
 				if _, ok := seen[item]; ok {
 					continue
@@ -109,9 +109,8 @@ func WithSubcommands(v ...*cobra.Command) Option {
 				seen[item] = struct{}{}
 				deduped = append(deduped, item)
 			}
-			v = deduped
 		}
-		o.subcommands = v
+		o.subcommands = deduped
 	}
 }
 
