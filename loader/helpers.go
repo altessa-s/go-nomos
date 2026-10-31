@@ -301,11 +301,27 @@ func assertStructPointer(conf any) error {
 // substituteEnvVariables performs environment variable substitution in a string.
 // It replaces all occurrences of ${VAR_NAME} with the corresponding environment variable values.
 // This function handles multiple variables within the same string and is used for text-level substitution.
+// ${VAR:default} takes default when VAR is unset.
 //
 // A $__secret{namespace:key} placeholder is kept as it is for the secrets
 // expander.
 func substituteEnvVariables(input string) string {
-	return restoreSecretPlaceholders(os.Expand(protectSecretPlaceholders(input), getenv))
+	return restoreSecretPlaceholders(os.Expand(protectSecretPlaceholders(input), func(ref string) string {
+		value, _ := lookupRef(ref)
+		return value
+	}))
+}
+
+// lookupRef resolves the body of a ${...} reference: VAR, or VAR:default,
+// whose default applies when VAR is unset. A variable set to an empty string
+// keeps its empty value. It reports false for an unset variable without a
+// default.
+func lookupRef(ref string) (string, bool) {
+	name, fallback, hasFallback := strings.Cut(ref, ":")
+	if value, ok := lookupEnv(name); ok {
+		return value, true
+	}
+	return fallback, hasFallback
 }
 
 // protectSecretPlaceholders replaces the start of every secret placeholder
@@ -394,14 +410,14 @@ func unwrapWholeEnvRefStrict(value, original string, depth int, visited map[stri
 }
 
 // substituteEnvVariablesStrict performs environment variable substitution in a string.
-// Unlike substituteEnvVariables, it returns an error if any referenced variable is undefined.
-// A variable that is defined but set to an empty string is not considered an error.
+// Unlike substituteEnvVariables, it returns an error if any referenced variable is undefined and has no
+// default. A variable that is defined but set to an empty string is not considered an error.
 func substituteEnvVariablesStrict(input string) (string, error) {
 	var firstErr error
-	result := os.Expand(protectSecretPlaceholders(input), func(key string) string {
-		val, ok := lookupEnv(key)
+	result := os.Expand(protectSecretPlaceholders(input), func(ref string) string {
+		val, ok := lookupRef(ref)
 		if !ok && firstErr == nil {
-			firstErr = fmt.Errorf("%w: ${%s}", ErrUndefinedEnvVar, key)
+			firstErr = fmt.Errorf("%w: ${%s}", ErrUndefinedEnvVar, ref)
 		}
 		return val
 	})

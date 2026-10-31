@@ -12,7 +12,7 @@ expansion.
 - Load from YAML/TOML files, environment variables, and struct `default` tags
 - Pluggable backends via `backend.Backend` interface (YAML is the default)
 - Nested env mapping with `__` delimiter (`GRPC__INTERCEPTORS__CACHE__ENABLED`)
-- Variable substitution: `${VAR}` or `${VAR:default}`
+- Variable substitution: `${VAR}` or `${VAR:default}` (the default applies when `VAR` is unset)
 - Inline `$VAR` expansion in env values with `$$` escape (see below)
 - Secret expansion: `$__secret{namespace:key}` via a `secrets.Resolver`
 - Cancellation: `LoadContext(ctx, conf)` fails at once on an ended `ctx` and runs every secret lookup under `ctx`, capped at 5 s per lookup;

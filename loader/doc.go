@@ -12,7 +12,7 @@
 //
 //   - Multi-source loading: files, environment variables, default values.
 //   - Multiple backends: YAML (yaml.v3), TOML.
-//   - Variable substitution: ${VAR} or ${VAR:default}.
+//   - Variable substitution: ${VAR} or ${VAR:default}; the default applies when VAR is unset.
 //   - Secret expansion: $__secret{namespace:key} for secure secret injection.
 //   - Automatic validation: uses struct tags for validation logic.
 //   - Nested configuration: supports complex structures and maps.
