@@ -4,7 +4,7 @@
 import "github.com/altessa-s/go-nomos/internal/conversion"
 ```
 
-Pure configuration transformations and conversion orchestration. File formats, command flags, and HTTP clients remain in outer adapters.
+Pure configuration transformations and conversion orchestration. File formats and command flags remain in outer adapters.
 
 ## Key types
 
@@ -12,8 +12,7 @@ Pure configuration transformations and conversion orchestration. File formats, c
 |------|----------------|
 | `Env` | Flatten trees and render deterministic environment documents. |
 | `Parser` | Parse environment assignments with bounded array indices. |
-| `Markdown` | Render reference documents using an optional `Describer`. |
-| `Describer` | Supply descriptions under the caller's context. |
+| `Markdown` | Render reference documents. |
 
 ## Functions
 
@@ -32,4 +31,4 @@ assignment parsing ignores section headings. Malformed arrays and arrays exceedi
 `Env` treats every nested object as a section and converts each key to `SCREAMING_SNAKE_CASE` the way the loader names struct levels
 (`fileStore.dir` becomes `FILE_STORE__DIR`). Without a schema, map entries cannot be told apart from sections, so map keys are converted the same way.
 
-`Markdown` escapes table cells and passes only field names and inferred types to `Describer`. Configuration values remain in the local document.
+`Markdown` escapes table cells so values cannot split table rows or columns.

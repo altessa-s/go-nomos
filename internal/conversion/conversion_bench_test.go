@@ -65,16 +65,9 @@ func BenchmarkRenderEnvLarge(b *testing.B) {
 
 func BenchmarkRenderMarkdownLarge(b *testing.B) {
 	data := largeConfig(50, 20)
-	provider := describeFunc(func(_ context.Context, vars map[string]string, _ string) (map[string]string, error) {
-		out := make(map[string]string, len(vars))
-		for key := range vars {
-			out[key] = "Description of " + key
-		}
-		return out, nil
-	})
 	b.ReportAllocs()
 	for b.Loop() {
-		if _, err := (&conversion.Markdown{}).Render(b.Context(), data, provider); err != nil {
+		if _, err := (&conversion.Markdown{}).Render(b.Context(), data); err != nil {
 			b.Fatal(err)
 		}
 	}

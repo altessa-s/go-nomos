@@ -84,8 +84,6 @@ Flags:
       --from-format string    Format of source (auto-detect by extension)
       --to-format string      Format of destination (auto-detect by extension)
       --parse-comments        Include commented lines in conversion
-      --use-claude            Generate Markdown field descriptions with the Claude API
-      --claude-api-key string Claude API key (or ANTHROPIC_API_KEY)
 ```
 
 ## Configuration Examples

@@ -8,10 +8,7 @@ package convert_test
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -23,7 +20,6 @@ import (
 
 	"github.com/altessa-s/go-nomos/cmd/nomos/commands"
 	"github.com/altessa-s/go-nomos/cmd/nomos/commands/convert"
-	"github.com/altessa-s/go-nomos/internal/rootcmd"
 	"github.com/altessa-s/go-nomos/loader/backend/yaml3"
 )
 
@@ -134,41 +130,14 @@ LOG__LEVEL=info
 	}, decodeYAMLFile(t, back))
 }
 
-func TestIntegration_MarkdownWithStubbedDescriptions(t *testing.T) {
+func TestIntegration_Markdown(t *testing.T) {
 	t.Parallel()
-	var sections []string
-	server := httptest.NewTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, http.MethodPost, r.Method)
-		require.Equal(t, "test-key", r.Header.Get("x-api-key"))
-		var req struct {
-			Messages []struct{ Content string } `json:"messages"`
-		}
-		require.NoError(t, json.NewDecoder(r.Body).Decode(&req))
-		require.Len(t, req.Messages, 1)
-		descriptions := map[string]string{}
-		for line := range strings.SplitSeq(req.Messages[0].Content, "\n") {
-			if key, _, ok := strings.Cut(strings.TrimPrefix(line, "- "), " (type:"); ok && strings.HasPrefix(line, "- ") {
-				descriptions[key] = "Describes " + strings.ToLower(key)
-			}
-		}
-		text, err := json.Marshal(descriptions)
-		require.NoError(t, err)
-		sections = append(sections, string(text))
-		require.NoError(t, json.NewEncoder(w).Encode(map[string]any{
-			"content": []map[string]string{{"type": "text", "text": string(text)}},
-		}))
-	}))
-	root := rootcmd.New("nomos", rootcmd.WithSubcommands(convert.NewWithOptions(
-		convert.WithEndpoint(server.URL), convert.WithHTTPClient(server.Client()),
-	)))
-
 	dir := t.TempDir()
 	src := writeFile(t, filepath.Join(dir, "config.yaml"), "db:\n  host: localhost\n  port: 5432\n#cache:\n#  ttl: 30s\n")
 	md := filepath.Join(dir, "REFERENCE.md")
-	_, stderr, err := execute(t, root, "convert", "--from", src, "--to", md, "--use-claude", "--claude-api-key", "test-key")
+	_, stderr, err := nomos(t, "convert", "--from", src, "--to", md)
 	require.NoError(t, err)
 	require.Empty(t, stderr)
-	require.Len(t, sections, 2, "one request per section")
 
 	const want = "# Environment Variables Reference\n\n" +
 		"This document describes all available environment variables for configuration.\n\n" +
@@ -176,18 +145,19 @@ func TestIntegration_MarkdownWithStubbedDescriptions(t *testing.T) {
 		"- [Cache Configuration](#cache-configuration)\n" +
 		"- [Db Configuration](#db-configuration)\n\n" +
 		"## Cache Configuration\n\n" +
-		"| Environment Variable | Type | Default Value | Description |\n" +
-		"|---------------------|------|---------------|-------------|\n" +
-		"| `CACHE__TTL` | duration | `30s` | Describes cache&#95;&#95;ttl |\n\n" +
+		"| Environment Variable | Type | Default Value |\n" +
+		"|---------------------|------|---------------|\n" +
+		"| `CACHE__TTL` | duration | `30s` |\n\n" +
 		"## Db Configuration\n\n" +
-		"| Environment Variable | Type | Default Value | Description |\n" +
-		"|---------------------|------|---------------|-------------|\n" +
-		"| `DB__HOST` | string | `localhost` | Describes db&#95;&#95;host |\n" +
-		"| `DB__PORT` | int | `5432` | Describes db&#95;&#95;port |\n\n"
+		"| Environment Variable | Type | Default Value |\n" +
+		"|---------------------|------|---------------|\n" +
+		"| `DB__HOST` | string | `localhost` |\n" +
+		"| `DB__PORT` | int | `5432` |\n\n"
 	require.Equal(t, want, readFile(t, md))
 }
 
 func TestIntegration_Errors(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	good := writeFile(t, filepath.Join(dir, "good.yaml"), "a: 1\n")
 	bad := writeFile(t, filepath.Join(dir, "bad.yaml"), "a: [unterminated\n")
@@ -206,10 +176,7 @@ func TestIntegration_Errors(t *testing.T) {
 		{name: "unsupported format", args: []string{"convert", "--from", good, "--to", filepath.Join(dir, "o.env"), "--to-format", "ini"}},
 		{name: "env directory", args: []string{"convert", "--from", envDir, "--to", filepath.Join(dir, "o.yaml")}, wantErr: convert.ErrEnvDirectoryInput},
 		{name: "missing required flag", args: []string{"convert", "--from", good}},
-		{name: "claude without key", args: []string{"convert", "--from", good, "--to", filepath.Join(dir, "o.md"), "--use-claude"}},
 	}
-	// Serial: the "claude without key" case clears ANTHROPIC_API_KEY via t.Setenv, which forbids t.Parallel.
-	t.Setenv("ANTHROPIC_API_KEY", "")
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			_, stderr, err := nomos(t, tc.args...)
@@ -220,7 +187,7 @@ func TestIntegration_Errors(t *testing.T) {
 			require.True(t, strings.HasPrefix(stderr, "Error: "), stderr)
 		})
 	}
-	for _, name := range []string{"o.env", "o.toml", "o.txt", "o.yaml", "o.md"} {
+	for _, name := range []string{"o.env", "o.toml", "o.txt", "o.yaml"} {
 		_, err := os.Stat(filepath.Join(dir, name))
 		require.ErrorIs(t, err, os.ErrNotExist, name)
 	}

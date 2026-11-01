@@ -17,25 +17,12 @@ import (
 // ConfigToMarkdownConverter generates a Markdown reference document from a
 // YAML or TOML configuration file. The output contains a table of contents
 // and per-section tables listing each environment variable, its inferred Go
-// type, and its default value. When a Claude API key is configured via
-// [ConfigToMarkdownConverter.SetClaudeAPI], an additional "Description"
-// column is populated by [ClaudeClient].
-type ConfigToMarkdownConverter struct {
-	describer conversion.Describer
-}
+// type, and its default value.
+type ConfigToMarkdownConverter struct{}
 
 // NewConfigToMarkdownConverter creates a new config to Markdown converter.
 func NewConfigToMarkdownConverter() *ConfigToMarkdownConverter {
 	return &ConfigToMarkdownConverter{}
-}
-
-// SetClaudeAPI enables Claude API integration for generating descriptions.
-func (conv *ConfigToMarkdownConverter) SetClaudeAPI(apiKey string) {
-	if apiKey == "" {
-		conv.describer = nil
-		return
-	}
-	conv.describer = NewClaudeClient(apiKey)
 }
 
 // Convert reads a YAML or TOML file at fromPath and writes a Markdown
@@ -72,9 +59,7 @@ func (conv *ConfigToMarkdownConverter) ConvertContext(ctx context.Context, fromP
 }
 
 // ConvertData generates a Markdown reference from pre-loaded configData and
-// writes it to toPath. If a Claude API key has been set, descriptions are
-// generated per-section via a single API call each; an API error for any
-// section causes the entire conversion to fail.
+// writes it to toPath.
 func (conv *ConfigToMarkdownConverter) ConvertData(data map[string]any, toPath string) error {
 	return conv.ConvertDataContext(context.Background(), data, toPath)
 }
@@ -85,7 +70,7 @@ func (conv *ConfigToMarkdownConverter) ConvertDataContext(ctx context.Context, d
 		return err
 	}
 	// Render fails on a context ended at any point of the rendering.
-	out, err := (&conversion.Markdown{}).Render(ctx, data, conv.describer)
+	out, err := (&conversion.Markdown{}).Render(ctx, data)
 	if err != nil {
 		return err
 	}

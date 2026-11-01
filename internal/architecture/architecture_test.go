@@ -59,7 +59,7 @@ func TestPackageBoundaries(t *testing.T) {
 			if strings.HasPrefix(dir, "internal/") && strings.Contains(imp, "go-nomos/cmd/") {
 				t.Errorf("%s depends on CLI", rel)
 			}
-			if dir == "internal/conversion" && (imp == "os" || imp == "net/http" || strings.HasPrefix(imp, "github.com/altessa-s/go-atlas-net/") || strings.Contains(imp, "/cobra") || strings.Contains(imp, "go-nomos/loader/backend")) {
+			if dir == "internal/conversion" && (imp == "os" || imp == "net/http" || strings.Contains(imp, "/cobra") || strings.Contains(imp, "go-nomos/loader/backend")) {
 				t.Errorf("%s couples conversion to adapter %s", rel, imp)
 			}
 			// Black-box tests (package loader_test) are loader clients and may pass a concrete

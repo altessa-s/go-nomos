@@ -14,20 +14,14 @@ import (
 	"strings"
 	"time"
 
-	coreerrs "github.com/altessa-s/go-atlas-core/errors"
 	corestrings "github.com/altessa-s/go-atlas-core/text/strings"
 )
-
-// Describer supplies optional descriptions without coupling rendering to a provider.
-type Describer interface {
-	Describe(context.Context, map[string]string, string) (map[string]string, error)
-}
 
 // Markdown renders configuration reference documents.
 type Markdown struct{}
 
-// Render creates a reference document, optionally enriching it through provider.
-func (conv *Markdown) Render(ctx context.Context, configData map[string]any, provider Describer) ([]byte, error) {
+// Render creates a reference document.
+func (conv *Markdown) Render(ctx context.Context, configData map[string]any) ([]byte, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -59,15 +53,9 @@ func (conv *Markdown) Render(ctx context.Context, configData map[string]any, pro
 	}
 	builder.WriteString("\n")
 
-	// Enrich the document when a description provider is supplied.
-	allDescriptions, err := conv.generateDescriptions(ctx, provider, sections, envVars)
-	if err != nil {
-		return nil, err
-	}
-
 	// Add sections with tables
 	for _, sectionName := range getSortedSectionNames(sections) {
-		conv.writeSection(&builder, sectionName, sections[sectionName], envVars, allDescriptions[sectionName], provider != nil)
+		conv.writeSection(&builder, sectionName, sections[sectionName], envVars)
 	}
 
 	if err := ctx.Err(); err != nil {
@@ -76,56 +64,19 @@ func (conv *Markdown) Render(ctx context.Context, configData map[string]any, pro
 	return []byte(builder.String()), nil
 }
 
-// generateDescriptions enriches each section through the injected provider.
-// A provider failure aborts the conversion before an output document is returned.
-func (conv *Markdown) generateDescriptions(
-	ctx context.Context, provider Describer,
-	sections map[string][]string,
-	envVars map[string]variableInfo,
-) (map[string]map[string]string, error) {
-	allDescriptions := make(map[string]map[string]string)
-	if provider == nil {
-		return allDescriptions, nil
-	}
-	for _, sectionName := range getSortedSectionNames(sections) {
-		if err := ctx.Err(); err != nil {
-			return nil, err
-		}
-		sectionVars := make(map[string]string)
-		for _, key := range sections[sectionName] {
-			v := envVars[key]
-			sectionVars[key] = "type: " + v.Type
-		}
-		descriptions, err := provider.Describe(ctx, sectionVars, sectionName)
-		if err != nil {
-			return nil, coreerrs.Wrapf(err, "failed to generate descriptions for %s", sectionName)
-		}
-		allDescriptions[sectionName] = descriptions
-	}
-	return allDescriptions, nil
-}
-
-// writeSection renders one section's header and variable table; the
-// description column is present only when an API key is set.
+// writeSection renders one section's header and variable table.
 func (conv *Markdown) writeSection(
 	builder *strings.Builder,
 	sectionName string,
 	sectionKeys []string,
 	envVars map[string]variableInfo,
-	descriptions map[string]string,
-	withDescriptions bool,
 ) {
 	// Add section header
 	fmt.Fprintf(builder, "## %s Configuration\n\n", formatSectionName(sectionName))
 
 	// Add table header
-	if withDescriptions {
-		builder.WriteString("| Environment Variable | Type | Default Value | Description |\n")
-		builder.WriteString("|---------------------|------|---------------|-------------|\n")
-	} else {
-		builder.WriteString("| Environment Variable | Type | Default Value |\n")
-		builder.WriteString("|---------------------|------|---------------|\n")
-	}
+	builder.WriteString("| Environment Variable | Type | Default Value |\n")
+	builder.WriteString("|---------------------|------|---------------|\n")
 
 	// Add variables in this section
 	for _, key := range sectionKeys {
@@ -135,16 +86,7 @@ func (conv *Markdown) writeSection(
 		if vi.Value != "" {
 			valueCell = markdownCodeCell(vi.Value)
 		}
-
-		if !withDescriptions {
-			fmt.Fprintf(builder, "| %s | %s | %s |\n", markdownCodeCell(key), vi.Type, valueCell)
-			continue
-		}
-		description := descriptions[key]
-		if description == "" {
-			description = " "
-		}
-		fmt.Fprintf(builder, "| %s | %s | %s | %s |\n", markdownCodeCell(key), vi.Type, valueCell, markdownTextCell(description))
+		fmt.Fprintf(builder, "| %s | %s | %s |\n", markdownCodeCell(key), vi.Type, valueCell)
 	}
 
 	builder.WriteString("\n")
