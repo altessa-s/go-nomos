@@ -80,4 +80,5 @@ all options. No sibling checkout is required. Commit regenerated files together 
 `go test ./internal/architecture` enforces format isolation and dependency direction. The CLI assembles backend and HTTP adapters around
 `internal/conversion`; loader operations use backend capabilities, with default YAML selection confined to the public constructor.
 
-The [architecture decision](docs/adr/0001-dependency-boundaries.md) records publication semantics, API compatibility, and the Go 1.27 adoption scope.
+Each load works on its own state: a failed reload restores the previously published graph in place, preserving aliases, and callers
+synchronize access to mutable configuration pointers themselves.
