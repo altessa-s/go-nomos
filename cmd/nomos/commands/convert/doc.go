@@ -19,8 +19,7 @@
 //   - [ConfigToEnvConverter] -- YAML/TOML to .env, with optional comment tracking.
 //   - [EnvToConfigConverter] -- .env to YAML/TOML, with automatic type inference.
 //   - [ConfigToConfigConverter] -- YAML to TOML or TOML to YAML.
-//   - [ConfigToMarkdownConverter] -- YAML/TOML to Markdown reference tables,
-//     optionally enriched with AI-generated descriptions via [ClaudeClient].
+//   - [ConfigToMarkdownConverter] -- YAML/TOML to Markdown reference tables.
 //
 // # Comment handling
 //

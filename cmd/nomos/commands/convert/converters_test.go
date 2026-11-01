@@ -184,8 +184,6 @@ func TestConfigToMarkdownConverter_ConvertData(t *testing.T) {
 	dir := t.TempDir()
 	to := filepath.Join(dir, "out.md")
 	conv := convert.NewConfigToMarkdownConverter()
-	// An empty key disables descriptions, so no request is ever sent.
-	conv.SetClaudeAPI("")
 	require.NoError(t, conv.ConvertData(converterData(), to))
 	require.Equal(t, converterMarkdown, readFile(t, to))
 

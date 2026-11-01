@@ -55,8 +55,7 @@ _, err := loader.New(nil, // nil selects the YAML backend
 
 - **Minimal dependencies** — the Go standard library and [go-atlas-core](https://github.com/altessa-s/go-atlas-core), plus package-scoped
   exceptions: `gopkg.in/yaml.v3` (`loader/backend/yaml3`), `BurntSushi/toml` (`loader/backend/toml`), `go-ozzo/ozzo-validation` and
-  `altessa-s/ozzo-rules` (`validation`), `spf13/cobra` and `MakeNowJust/heredoc` (`cmd/nomos`, `internal/rootcmd`), and
-  [go-atlas-net](https://github.com/altessa-s/go-atlas-net) (`cmd/nomos/commands/convert`: outbound HTTP transport and request interfaces).
+  `altessa-s/ozzo-rules` (`validation`), and `spf13/cobra` and `MakeNowJust/heredoc` (`cmd/nomos`, `internal/rootcmd`).
 - **Strict by default** — file keys that bind to no struct field fail the load, secret lookups fail closed, `!include` stays inside the config
   root, and file reads are capped by `WithMaxConfigBytes`.
 - **Secrets stay out of errors** — once a secret was resolved, `Load` withholds error details and names only field paths and variables.

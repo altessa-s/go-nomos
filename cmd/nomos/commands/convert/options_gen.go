@@ -3,78 +3,8 @@
 
 package convert
 
-import (
-	"net/http"
-	"strings"
-	"time"
-)
-
 // Option is a functional option for configuring options.
 type Option func(o *options)
-
-// WithEndpoint sets the endpoint option.
-func WithEndpoint[T interface{ string | *string }](v T) Option {
-	return func(o *options) {
-		var value string
-		switch t := any(v).(type) {
-		case string:
-			value = t
-		case *string:
-			if t == nil {
-				return
-			}
-			value = *t
-		}
-		transformedValue := strings.TrimSpace(value)
-
-		if transformedValue == "" {
-			return
-		}
-		o.endpoint = transformedValue
-	}
-}
-
-// WithHTTPClient sets the httpClient option.
-func WithHTTPClient(v *http.Client) Option {
-	return func(o *options) {
-		if v == nil {
-			return
-		}
-		o.httpClient = v
-	}
-}
-
-// WithMaxResponseBytes sets the maxResponseBytes option.
-func WithMaxResponseBytes(v int64) Option {
-	return func(o *options) {
-		if v <= 0 {
-			return
-		}
-		o.maxResponseBytes = v
-	}
-}
-
-// WithModel sets the model option.
-func WithModel[T interface{ string | *string }](v T) Option {
-	return func(o *options) {
-		var value string
-		switch t := any(v).(type) {
-		case string:
-			value = t
-		case *string:
-			if t == nil {
-				return
-			}
-			value = *t
-		}
-		transformedValue := strings.TrimSpace(value)
-
-		if transformedValue == "" {
-			return
-		}
-		o.model = transformedValue
-	}
-}
 
 // WithParseComments enables the parseComments option.
 func WithParseComments() Option {
@@ -84,24 +14,9 @@ func WithParseComments() Option {
 	}
 }
 
-// WithRequestTimeout sets the requestTimeout option.
-func WithRequestTimeout(v time.Duration) Option {
-	return func(o *options) {
-		if v <= 0 {
-			return
-		}
-		o.requestTimeout = v
-	}
-}
-
 // defaultOptions returns the default values for options.
 func defaultOptions() *options {
-	return &options{
-		endpoint:         DefaultEndpoint,
-		maxResponseBytes: DefaultMaxResponseBytes,
-		model:            DefaultModel,
-		requestTimeout:   DefaultRequestTimeout,
-	}
+	return &options{}
 }
 
 // newOptions creates a new options with the given options.

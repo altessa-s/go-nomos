@@ -415,16 +415,6 @@ func TestConvert_Errors(t *testing.T) {
 	}
 }
 
-// TestConvert_ClaudeKeyRequired is serial: it clears ANTHROPIC_API_KEY via t.Setenv.
-func TestConvert_ClaudeKeyRequired(t *testing.T) {
-	t.Setenv("ANTHROPIC_API_KEY", "")
-
-	dir := t.TempDir()
-	from := writeFile(t, filepath.Join(dir, "c.yaml"), "a: 1\n")
-	_, err := runConvert(t, "--from", from, "--to", filepath.Join(dir, "c.md"), "--use-claude")
-	require.Error(t, err)
-}
-
 func TestConvert_ToMarkdownArrayElementTypes(t *testing.T) {
 	t.Parallel()
 

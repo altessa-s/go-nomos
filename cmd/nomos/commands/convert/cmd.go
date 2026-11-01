@@ -17,7 +17,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/altessa-s/go-atlas-core/io/files"
-	"github.com/altessa-s/go-atlas-core/runtime/appinfo"
 	"github.com/altessa-s/go-atlas-core/text/strings/intern"
 
 	"github.com/altessa-s/go-nomos/internal/conversion"
@@ -50,27 +49,23 @@ const (
 // Command holds the state for a single invocation of "nomos convert".
 // It embeds [cobra.Command] and stores the resolved flag values.
 type Command struct {
-	opts []Option
 	*cobra.Command
 	fromPath      string
 	toPath        string
 	fromFormat    string
 	toFormat      string
-	claudeAPIKey  string
 	parseComments bool
-	useClaude     bool
 }
 
 // New returns a cobra.Command that performs configuration file conversion.
 // The returned command requires --from and --to flags and supports optional
-// --from-format, --to-format, --parse-comments, --use-claude, and
-// --claude-api-key flags.
+// --from-format, --to-format, and --parse-comments flags.
 func New() *cobra.Command { return NewWithOptions() }
 
-// NewWithOptions constructs a command with generated defaults and HTTP settings.
+// NewWithOptions constructs a command with generated defaults.
 func NewWithOptions(opts ...Option) *cobra.Command {
 	cmd := &Command{
-		opts: opts, parseComments: newOptions(opts...).parseComments,
+		parseComments: newOptions(opts...).parseComments,
 		Command: &cobra.Command{
 			Use:   "convert",
 			Short: "Convert configuration files between formats",
@@ -165,45 +160,13 @@ func (c *Command) configure() {
 		will be included in the output.
 	`))
 
-	c.Flags().BoolVar(&c.useClaude, "use-claude", false, heredoc.Doc(`
-		Use Claude API to generate field descriptions.
-
-		When enabled, Claude will generate descriptions for configuration
-		fields in markdown output. Requires --claude-api-key to be set.
-	`))
-
-	c.Flags().StringVar(&c.claudeAPIKey, "claude-api-key", "", heredoc.Doc(`
-		Claude API key for AI-powered description generation.
-
-		Required when --use-claude is enabled. Can also be set via
-		ANTHROPIC_API_KEY environment variable.
-	`))
-
 	// Mark flags as required
 	// Errors can only occur if the flag doesn't exist, which is a programming error
 	// that would be caught during development. Silent ignore is safe here.
 	_ = c.MarkFlagRequired("from") //nolint:errcheck
 	_ = c.MarkFlagRequired("to")   //nolint:errcheck
 
-	// Set pre-run hook for validation
-	c.PersistentPreRunE = c.preRun
-
 	c.RunE = c.run
-}
-
-// preRun performs validation before command execution.
-func (c *Command) preRun(cmd *cobra.Command, _ []string) error {
-	// Check for Claude API key from environment variable if not set via flag
-	if c.useClaude {
-		if c.claudeAPIKey == "" {
-			c.claudeAPIKey = appinfo.Env(appinfo.EnvAnthropicAPIKey)
-		}
-		if c.claudeAPIKey == "" {
-			return fmt.Errorf("--claude-api-key is required when --use-claude is enabled (or set %s environment variable)", appinfo.EnvAnthropicAPIKey)
-		}
-	}
-
-	return nil
 }
 
 // run executes the convert command.
@@ -367,9 +330,6 @@ func (c *Command) performConversion(ctx context.Context, fromFormat, toFormat st
 	case fromConfig && toFormat == formatMD:
 		// Config format (YAML/TOML) to Markdown
 		converter := NewConfigToMarkdownConverter()
-		if c.useClaude {
-			converter.describer = newClaudeClient(c.claudeAPIKey, c.opts...)
-		}
 		if isDir {
 			return converter.ConvertDataContext(ctx, mergedData, c.toPath)
 		}
