@@ -29,3 +29,6 @@ require (
 	golang.org/x/text v0.43.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 )
+
+// The history was rewritten after these releases; their published checksums no longer match the tags.
+retract [v0.1.0, v0.1.3]
