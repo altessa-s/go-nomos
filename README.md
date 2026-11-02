@@ -51,6 +51,9 @@ _, err := loader.New(nil, // nil selects the YAML backend
 ).LoadContext(ctx, &cfg)
 ```
 
+Use `default:"-"` on any field to disable its tag default. On a pointer to a struct, it also prevents allocation when the pointer is nil; explicit
+file and environment values still load normally.
+
 ## Design principles
 
 - **Minimal dependencies** — the Go standard library and [go-atlas-core](https://github.com/altessa-s/go-atlas-core), plus package-scoped

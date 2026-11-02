@@ -236,7 +236,7 @@ func (cf *loadState) defaultField(ctx context.Context, fv reflect.Value, sf refl
 		return cf.defaultStruct(ctx, fv, p, false, path)
 	}
 
-	if tag != "" && !p.isSet() {
+	if tag != "" && tag != "-" && !p.isSet() {
 		if err := cf.applyTag(ctx, fv, defaultTagValue(tag), p); err != nil {
 			return err
 		}
