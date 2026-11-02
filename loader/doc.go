@@ -28,6 +28,12 @@
 // needs a backend implementing backend.StrictDecoder, as both built-in
 // backends do; other backends decode without it.
 //
+// # Default tags
+//
+// A `default:"-"` tag means no tag default for every field kind. On a pointer
+// to a struct, it also prevents allocation when the pointer is nil. Explicit
+// file and environment values still apply.
+//
 // # Environment variable names
 //
 // Every path of the environment loader (plain fields, indexed slices, nested

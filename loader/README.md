@@ -77,7 +77,8 @@ or element on the way. In strict mode, a level no field answers to or a level be
    nothing to a bool, number, duration, slice or map, so its default still applies
 3. Apply defaults in one pass over the configuration, its nested structs and the struct elements of maps and slices: `Default()` first, then `default`
    tags for the zero values nothing set explicitly; a nil pointer struct is allocated when it has a field to default, unless it is tagged `default:"-"`
-   or a file set it to `null`. In strict mode an undefined `${VAR}` in a tag fails only for a field that needs the default
+   or a file set it to `null`. For every field kind, `default:"-"` means no tag default; on a pointer to a struct it also prevents allocation when
+   nil. Explicit file and environment values still apply. In strict mode an undefined `${VAR}` in a tag fails only for a field that needs the default
 4. `$__secret{ns:key}` placeholders are resolved via the secrets manager at the source, once per source value and before it is parsed:
    - every placeholder in a file, in the parsed document before step 1 decodes it, whether or not a later file or the environment overrides the
      value: a missing secret in a file fails the load (the backend must implement `backend.ScalarRewriter`, as `yaml3` does; otherwise a file
@@ -151,7 +152,7 @@ no field answers to or a level below a value.
 - An explicit `false`, `0` or `""` from a file or the environment now wins over a `default` tag; an empty environment variable is not an explicit value
   for a bool, number, duration, slice or map.
 - Omitted, untagged pointer structs are allocated and defaulted at any depth, including inside map and slice elements; tag such a field `default:"-"` to
-  keep it `nil`. A pointer struct a file sets to `null` also stays `nil` inside collection elements.
+  keep it `nil`. For every field kind, `default:"-"` means no tag default. A pointer struct a file sets to `null` also stays `nil` inside collection elements.
 - A `default` tag is only substituted when it is applied, so in strict mode an undefined `${VAR}` in an unused default no longer fails.
 - A file key that binds to no field of the configuration struct fails the load with `ErrDecode` wrapping `ErrUnknownField`; before, it was ignored, so a
   typo silently left a setting at its default. The error names every unknown key of the file. Map entry keys stay free, though struct values in a map

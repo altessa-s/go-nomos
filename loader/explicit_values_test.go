@@ -278,6 +278,23 @@ type hyphenItem struct {
 	Label string `yaml:"label" default:"-"`
 }
 
+type defaultDashNested struct {
+	Value string `yaml:"value" default:"-"`
+}
+
+type defaultDashConfig struct {
+	String    string             `yaml:"string" default:"-"`
+	StringPtr *string            `yaml:"stringPtr" default:"-"`
+	Int       int                `yaml:"int" default:"-"`
+	Duration  time.Duration      `yaml:"duration" default:"-"`
+	Strings   []string           `yaml:"strings" default:"-"`
+	Map       map[string]string  `yaml:"map" default:"-"`
+	Nested    defaultDashNested  `yaml:"nested"`
+	StructPtr *defaultDashNested `yaml:"structPtr" default:"-"`
+	Regular   string             `yaml:"regular" default:"x"`
+	EnvString string             `yaml:"envString" env:"DEFAULT_DASH_ENV" default:"-"`
+}
+
 type keysConfig struct {
 	Hyphens []hyphenItem            `yaml:"hyphens"`
 	ByName  map[string]explicitItem `yaml:"byName"`
@@ -294,10 +311,62 @@ func loadKeys(t testing.TB, content string, opts ...loader.Option) *keysConfig {
 	return cfg
 }
 
-// On a scalar, default:"-" is an ordinary value, not the pointer sentinel.
-func TestLoad_ElementScalarHyphenDefault(t *testing.T) {
+// TestLoad_DefaultDashMeansNoDefault pins default:"-" as a skip marker for
+// every field kind while preserving explicit source values and ordinary defaults.
+// The environment case mutates process state, so this test is not parallel.
+func TestLoad_DefaultDashMeansNoDefault(t *testing.T) {
+	t.Setenv("BUG_DASH_DEFAULT_DASH_ENV", "")
+
+	cfg := &defaultDashConfig{}
+	_, err := loader.New(nil, loader.WithSkipEnv()).Load(cfg)
+	require.NoError(t, err)
+	for _, tc := range []struct {
+		name string
+		got  any
+		want any
+	}{
+		{name: "string", got: cfg.String, want: ""},
+		{name: "string pointer", got: cfg.StringPtr, want: (*string)(nil)},
+		{name: "integer", got: cfg.Int, want: 0},
+		{name: "duration", got: cfg.Duration, want: time.Duration(0)},
+		{name: "slice", got: cfg.Strings, want: []string(nil)},
+		{name: "map", got: cfg.Map, want: map[string]string(nil)},
+		{name: "nested struct field", got: cfg.Nested.Value, want: ""},
+		{name: "struct pointer", got: cfg.StructPtr, want: (*defaultDashNested)(nil)},
+		{name: "untagged default remains active", got: cfg.Regular, want: "x"},
+		{name: "environment field", got: cfg.EnvString, want: ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, tc.got)
+		})
+	}
+
+	file := filepath.Join(t.TempDir(), "explicit.yaml")
+	content := "string: file\nstringPtr: pointer\nint: 7\nduration: 2s\nstrings: [a, b]\nmap: {key: value}\nnested:\n  value: nested-file\nstructPtr:\n  value: pointer-file\n"
+	require.NoError(t, os.WriteFile(file, []byte(content), 0o600))
+	fileCfg := &defaultDashConfig{}
+	_, err = loader.New(nil, loader.WithPath(file), loader.WithSkipEnv()).Load(fileCfg)
+	require.NoError(t, err)
+	require.Equal(t, "file", fileCfg.String)
+	require.Equal(t, "pointer", *fileCfg.StringPtr)
+	require.Equal(t, 7, fileCfg.Int)
+	require.Equal(t, 2*time.Second, fileCfg.Duration)
+	require.Equal(t, []string{"a", "b"}, fileCfg.Strings)
+	require.Equal(t, map[string]string{"key": "value"}, fileCfg.Map)
+	require.Equal(t, "nested-file", fileCfg.Nested.Value)
+	require.Equal(t, "pointer-file", fileCfg.StructPtr.Value)
+
+	t.Setenv("BUG_DASH_DEFAULT_DASH_ENV", "from-env")
+	envCfg := &defaultDashConfig{}
+	_, err = loader.New(nil, loader.WithEnvPrefix("BUG_DASH")).Load(envCfg)
+	require.NoError(t, err)
+	require.Equal(t, "from-env", envCfg.EnvString)
+}
+
+// default:"-" on an element's scalar field means no default value.
+func TestLoad_ElementScalarDashDefaultStaysZero(t *testing.T) {
 	cfg := loadKeys(t, "hyphens:\n  - {}\n")
-	require.Equal(t, "-", cfg.Hyphens[0].Label)
+	require.Zero(t, cfg.Hyphens[0].Label)
 }
 
 // Map keys keep their source spelling: "0x10" must not be recorded as "16".
