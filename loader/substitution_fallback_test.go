@@ -24,6 +24,7 @@ type fallbackConfig struct {
 // does not report it as undefined.
 func TestLoad_SubstitutionFallback(t *testing.T) {
 	t.Parallel()
+
 	tests := []struct {
 		name    string
 		backend backend.Backend
@@ -39,6 +40,7 @@ func TestLoad_SubstitutionFallback(t *testing.T) {
 			if strict {
 				opts = append(opts, loader.WithStrict())
 			}
+
 			cfg := &fallbackConfig{}
 			require.NoError(t, loadFiles(t, tc.backend, cfg, map[string]string{tc.file: tc.content}, opts...), tc.name)
 			require.Equal(t, "fallback", cfg.Name, tc.name)

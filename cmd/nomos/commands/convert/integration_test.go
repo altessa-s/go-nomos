@@ -26,11 +26,13 @@ import (
 // execute runs args through root and returns captured stdout and stderr.
 func execute(t testing.TB, root *cobra.Command, args ...string) (string, string, error) {
 	t.Helper()
+
 	var stdout, stderr bytes.Buffer
 	root.SetOut(&stdout)
 	root.SetErr(&stderr)
 	root.SetArgs(args)
 	err := root.ExecuteContext(t.Context())
+
 	return stdout.String(), stderr.String(), err
 }
 
@@ -42,11 +44,15 @@ func nomos(t testing.TB, args ...string) (string, string, error) {
 
 func decodeYAMLFile(t testing.TB, path string) map[string]any {
 	t.Helper()
+
 	f, err := os.Open(path)
 	require.NoError(t, err)
+
 	defer func() { _ = f.Close() }()
+
 	var out map[string]any
 	require.NoError(t, (&yaml3.Backend{}).Decode(f, &out))
+
 	return out
 }
 
@@ -181,12 +187,15 @@ func TestIntegration_Errors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			_, stderr, err := nomos(t, tc.args...)
 			require.Error(t, err)
+
 			if tc.wantErr != nil {
 				require.ErrorIs(t, err, tc.wantErr)
 			}
+
 			require.True(t, strings.HasPrefix(stderr, "Error: "), stderr)
 		})
 	}
+
 	for _, name := range []string{"o.env", "o.toml", "o.txt", "o.yaml"} {
 		_, err := os.Stat(filepath.Join(dir, name))
 		require.ErrorIs(t, err, os.ErrNotExist, name)
@@ -195,10 +204,12 @@ func TestIntegration_Errors(t *testing.T) {
 
 func TestIntegration_Binary(t *testing.T) {
 	t.Parallel()
+
 	goTool, err := exec.LookPath("go")
 	if err != nil {
 		t.Skip("go toolchain not on PATH")
 	}
+
 	dir := t.TempDir()
 	bin := filepath.Join(dir, "nomos")
 	build := exec.CommandContext(t.Context(), goTool, "build", "-o", bin, "github.com/altessa-s/go-nomos/cmd/nomos")
@@ -213,6 +224,7 @@ func TestIntegration_Binary(t *testing.T) {
 	require.Contains(t, readFile(t, dst), "SERVER__PORT=8080\n")
 
 	var stderr bytes.Buffer
+
 	run = exec.CommandContext(t.Context(), bin, "convert", "--from", filepath.Join(dir, "absent.yaml"), "--to", dst)
 	run.Stderr = &stderr
 	err = run.Run()

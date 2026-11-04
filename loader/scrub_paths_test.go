@@ -32,6 +32,7 @@ func (e fieldErrors) Error() string {
 	for k, v := range e {
 		parts = append(parts, k+": "+v.Error())
 	}
+
 	return strings.Join(parts, "; ")
 }
 
@@ -58,6 +59,7 @@ type scrubConfig struct {
 // Validate rejects the configuration with a joined tree of location maps.
 func (c *scrubConfig) Validate() error {
 	_ = c.hidden
+
 	return errors.Join(emptyWrapper{}, fieldErrors{
 		"token":  aliasError{},
 		"items":  fieldErrors{"3": errScrubTarget},

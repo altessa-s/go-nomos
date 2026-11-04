@@ -16,6 +16,7 @@ import (
 
 func TestExtensionsForFormat(t *testing.T) {
 	t.Parallel()
+
 	tests := []struct {
 		format string
 		want   []string
@@ -37,7 +38,9 @@ func TestExtensionsForFormat(t *testing.T) {
 
 func TestConfigToMarkdownConvertDataContext(t *testing.T) {
 	t.Parallel()
+
 	data := map[string]any{"db": map[string]any{"host": "h"}}
+
 	const want = "# Environment Variables Reference\n\n" +
 		"This document describes all available environment variables for configuration.\n\n" +
 		"## Table of Contents\n\n" +
@@ -59,19 +62,26 @@ func TestConfigToMarkdownConvertDataContext(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
+
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
+
 			if tc.cancel {
 				cancel()
 			}
+
 			to := filepath.Join(t.TempDir(), "out.md")
+
 			err := NewConfigToMarkdownConverter().ConvertDataContext(ctx, data, to)
 			if tc.wantErr != nil {
 				require.ErrorIs(t, err, tc.wantErr)
+
 				_, statErr := os.Stat(to)
 				require.ErrorIs(t, statErr, os.ErrNotExist)
+
 				return
 			}
+
 			require.NoError(t, err)
 			got, err := os.ReadFile(to)
 			require.NoError(t, err)
@@ -82,6 +92,7 @@ func TestConfigToMarkdownConvertDataContext(t *testing.T) {
 
 func TestOptionsParseComments(t *testing.T) {
 	t.Parallel()
+
 	tests := []struct {
 		name      string
 		opts      []Option
@@ -93,6 +104,7 @@ func TestOptionsParseComments(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
+
 			o := newOptions(tc.opts...)
 			require.Equal(t, tc.wantParse, o.parseComments)
 			flag := NewWithOptions(tc.opts...).Flags().Lookup("parse-comments")
@@ -106,9 +118,11 @@ func TestConfigToEnvConvertDataWithCommentsContextCanceled(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
+
 	to := filepath.Join(t.TempDir(), "out.env")
 	err := NewConfigToEnvConverter().ConvertDataWithCommentsContext(ctx, map[string]any{"a": 1}, nil, to)
 	require.ErrorIs(t, err, context.Canceled)
+
 	_, statErr := os.Stat(to)
 	require.ErrorIs(t, statErr, os.ErrNotExist)
 }

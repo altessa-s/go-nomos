@@ -49,30 +49,37 @@ func writeTree(t testing.TB, files map[string]string) string {
 	t.Helper()
 	dir, err := filepath.EvalSymlinks(t.TempDir())
 	require.NoError(t, err)
+
 	for rel, content := range files {
 		p := filepath.Join(dir, rel)
 		require.NoError(t, os.MkdirAll(filepath.Dir(p), 0o700))
 		require.NoError(t, os.WriteFile(p, []byte(content), 0o600))
 	}
+
 	return dir
 }
 
 // load preprocesses the entry file of dir and decodes it into out.
 func load(t testing.TB, dir, entry string, strict bool, out any) error {
 	t.Helper()
+
 	b := &yaml3.Backend{}
 	raw, err := os.ReadFile(filepath.Join(dir, entry))
 	require.NoError(t, err)
+
 	content, err := b.Preprocess(string(raw), filepath.Dir(filepath.Join(dir, entry)), dir, 1<<20)
 	if err != nil {
 		return err
 	}
+
 	if err := b.CheckDocument(content); err != nil {
 		return err
 	}
+
 	if strict {
 		return b.DecodeStrict(strings.NewReader(content), out)
 	}
+
 	return b.Decode(strings.NewReader(content), out)
 }
 
@@ -114,6 +121,7 @@ func TestIntegration_IncludeChainAnchorsAndMerges(t *testing.T) {
 	t.Parallel()
 
 	dir := writeTree(t, itFixture)
+
 	var cfg struct {
 		itConfig `yaml:",inline"`
 		Defaults map[string]any `yaml:"defaults"`
@@ -145,8 +153,10 @@ func TestIntegration_DecodeKeysOverIncludes(t *testing.T) {
 		itConfig `yaml:",inline"`
 		Defaults map[string]any `yaml:"defaults"`
 	}
+
 	root, err := b.DecodeKeys(strings.NewReader(content))
 	require.NoError(t, err)
+
 	fs, ok := root.Fields(reflect.TypeFor[keysCfg]())
 	require.True(t, ok)
 	inline, ok := fs[0].Fields(reflect.TypeFor[itConfig]())
@@ -177,6 +187,7 @@ func TestIntegration_IncludeRootConfinement(t *testing.T) {
 	t.Parallel()
 
 	outside := writeTree(t, map[string]string{"secret.yaml": "password: leaked\n"})
+
 	tests := []struct {
 		name  string
 		files map[string]string
@@ -189,11 +200,14 @@ func TestIntegration_IncludeRootConfinement(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
+
 			dir := writeTree(t, tc.files)
 			if tc.link != "" {
 				require.NoError(t, os.Symlink(filepath.Join(outside, "secret.yaml"), filepath.Join(dir, tc.link)))
 			}
+
 			var out map[string]any
+
 			err := load(t, dir, "config.yaml", false, &out)
 			require.Error(t, err)
 			require.NotContains(t, err.Error(), "leaked")
@@ -211,6 +225,7 @@ func TestIntegration_CircularIncludeChain(t *testing.T) {
 		"a.yaml":      "a: 1\n!include b.yaml\n",
 		"b.yaml":      "b: 1\n!include a.yaml\n",
 	})
+
 	var out map[string]any
 	require.Error(t, load(t, dir, "config.yaml", false, &out))
 }
@@ -231,6 +246,7 @@ func TestIntegration_StrictUnknownFields(t *testing.T) {
 	require.Equal(t, "db.local", lenient.Database.Host)
 
 	var strict itConfig
+
 	err := load(t, dir, "config.yaml", true, &strict)
 	require.ErrorIs(t, err, backend.ErrUnknownField)
 	te, ok := errors.AsType[*yaml.TypeError](err)
@@ -244,22 +260,30 @@ func TestIntegration_AliasBombAcrossIncludes(t *testing.T) {
 
 	var sb strings.Builder
 	sb.WriteString("a: &a [x, x, x, x, x, x, x, x, x, x]\n")
+
 	prev := "a"
+
 	for _, name := range []string{"b", "c", "d", "e", "f", "g"} {
 		sb.WriteString(name + ": &" + name + " [")
+
 		for i := range 10 {
 			if i > 0 {
 				sb.WriteString(", ")
 			}
+
 			sb.WriteString("*" + prev)
 		}
+
 		sb.WriteString("]\n")
+
 		prev = name
 	}
+
 	dir := writeTree(t, map[string]string{
 		"config.yaml": "!include bomb.yaml\n",
 		"bomb.yaml":   sb.String(),
 	})
+
 	var out map[string]any
 	require.Error(t, load(t, dir, "config.yaml", false, &out))
 }

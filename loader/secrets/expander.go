@@ -100,10 +100,13 @@ func (e *Expander) Expand(ctx context.Context, content string) (string, error) {
 		if !HasSecrets(content) {
 			return content, nil
 		}
+
 		if e.failOnError {
 			return "", ErrNoResolver
 		}
+
 		e.logger.WarnContext(ctx, "no secret resolver configured; replacing secret placeholders with empty strings")
+
 		return secretPattern.ReplaceAllString(content, ""), nil
 	}
 
@@ -118,6 +121,7 @@ func (e *Expander) Expand(ctx context.Context, content string) (string, error) {
 	result.Grow(len(content))
 
 	lastIndex := 0
+
 	for _, match := range matches {
 		// match[0:2] - full match
 		// match[2:4] - namespace group
@@ -148,6 +152,7 @@ func (e *Expander) Expand(ctx context.Context, content string) (string, error) {
 			e.logger.DebugContext(ctx, "secret expansion target",
 				slog.String("namespace", namespace),
 				slog.String("key", key))
+
 			if e.failOnError {
 				return "", coreerrs.Wrap(err, "secret expansion failed; see debug log for the offending key")
 			}
@@ -156,6 +161,7 @@ func (e *Expander) Expand(ctx context.Context, content string) (string, error) {
 			// debug log above already captured them for local diagnosis.
 			e.logger.WarnContext(ctx, "failed to retrieve secret; see debug log for the offending key",
 				slog.Any("error", err))
+
 			secretValue = ""
 		}
 
@@ -194,10 +200,12 @@ func HasSecrets(content string) bool {
 // safe in an error message.
 func References(content string) []string {
 	matches := secretPattern.FindAllStringSubmatch(content, -1)
+
 	refs := make([]string, 0, len(matches))
 	for _, m := range matches {
 		refs = append(refs, m[1]+":"+m[2])
 	}
+
 	return refs
 }
 
@@ -217,5 +225,6 @@ func ExpandString(ctx context.Context, content string, resolver Resolver) (strin
 	}
 
 	expander := New(resolver)
+
 	return expander.Expand(ctx, content)
 }

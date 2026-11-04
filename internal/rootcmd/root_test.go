@@ -17,17 +17,23 @@ import (
 
 func TestRun(t *testing.T) {
 	t.Parallel()
+
 	for _, panics := range []bool{false, true} {
 		t.Run(fmt.Sprint(panics), func(t *testing.T) {
 			t.Parallel()
+
 			var out, errOut bytes.Buffer
+
 			sub := &cobra.Command{Use: "child", RunE: func(cmd *cobra.Command, _ []string) error {
 				if panics {
 					panic("boom")
 				}
+
 				_, err := fmt.Fprintln(cmd.OutOrStdout(), "hello")
+
 				return err
 			}}
+
 			err := rootcmd.Run(t.Context(), "testtool", []string{"child"}, rootcmd.WithSubcommands(sub), rootcmd.WithOut(&out), rootcmd.WithErr(&errOut))
 			if panics {
 				require.Error(t, err)
@@ -43,7 +49,9 @@ func TestRun(t *testing.T) {
 
 func TestNew(t *testing.T) {
 	t.Parallel()
+
 	var out, errOut bytes.Buffer
+
 	ran := false
 	sub := &cobra.Command{Use: "child", Run: func(*cobra.Command, []string) { ran = true }}
 	cmd := rootcmd.New("testtool",

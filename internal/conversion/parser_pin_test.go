@@ -14,6 +14,7 @@ func TestSetNestedValue_Pin(t *testing.T) {
 	t.Parallel()
 
 	type kv struct{ key, value string }
+
 	for _, tc := range []struct {
 		name     string
 		keys     []kv
@@ -33,22 +34,28 @@ func TestSetNestedValue_Pin(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
+
 			conv := &Parser{}
 			data := map[string]any{}
+
 			var err error
 			for _, e := range tc.keys {
 				if err = conv.setNestedValue(data, e.key, e.value); err != nil {
 					break
 				}
 			}
+
 			if tc.conflict {
 				if tc.name == "negative index" {
 					require.ErrorIs(t, err, ErrInvalidInput)
 					return
 				}
+
 				require.ErrorIs(t, err, ErrConflictingKey)
+
 				return
 			}
+
 			require.NoError(t, err)
 			require.Equal(t, tc.want, data)
 		})

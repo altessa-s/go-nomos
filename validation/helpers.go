@@ -27,16 +27,20 @@ import (
 //	// Result: {"server.port": "invalid port"}
 func ErrorsToFlatMap(in validation.Errors) validation.Errors {
 	out := make(validation.Errors)
+
 	for key, value := range in {
 		if valueAsMap, ok := value.(validation.Errors); ok {
 			sub := ErrorsToFlatMap(valueAsMap)
 			for subKey, subValue := range sub {
 				out[key+"."+subKey] = subValue
 			}
+
 			continue
 		}
+
 		out[key] = value
 	}
+
 	return out
 }
 
@@ -54,14 +58,18 @@ func PrettyError(err error) string {
 	if err == nil {
 		return ""
 	}
+
 	if verrs, ok := errors.AsType[validation.Errors](err); ok {
 		verrs = ErrorsToFlatMap(verrs)
+
 		var strs = make([]string, 0, len(verrs))
 		for f, e := range verrs {
 			strs = append(strs, fmt.Sprintf("  - %s: %v", f, e))
 		}
+
 		return "Configuration is not valid:\n" +
 			strings.Join(strs, "\n")
 	}
+
 	return err.Error()
 }

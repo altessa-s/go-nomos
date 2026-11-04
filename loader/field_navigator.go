@@ -41,13 +41,16 @@ func (cf *loadState) findFieldByPath(fieldPath string) *field {
 	if !cf.slicePathResolves(tagged, rest, parts) {
 		return nil
 	}
+
 	if tagged != nil {
 		taggedValue := fieldByIndexAlloc(w.current, tagged.index)
 		if rest == nil {
 			fld := *tagged
 			fld.value = taggedValue
+
 			return &fld
 		}
+
 		w.current = taggedValue
 		w.steps = tagged.pathSteps()
 		w.fixed = false
@@ -58,6 +61,7 @@ func (cf *loadState) findFieldByPath(fieldPath string) *field {
 		if !w.current.IsValid() {
 			return nil
 		}
+
 		fld, ok := w.step(part, i == len(parts)-1)
 		if fld != nil || !ok {
 			return fld
@@ -106,11 +110,14 @@ func (w *pathWalk) step(part string, last bool) (fld *field, ok bool) {
 		if last {
 			return w.field(part, reflect.StructField{}), true
 		}
+
 		return nil, true
 	}
+
 	if arrayIndex, err := strconv.Atoi(part); err == nil {
 		return nil, w.elem(arrayIndex)
 	}
+
 	return w.structField(part, last)
 }
 
@@ -121,6 +128,7 @@ func (w *pathWalk) elem(arrayIndex int) bool {
 	if w.current.Kind() != reflect.Slice {
 		return false
 	}
+
 	if arrayIndex < 0 || arrayIndex >= w.current.Len() {
 		return false
 	}
@@ -128,6 +136,7 @@ func (w *pathWalk) elem(arrayIndex int) bool {
 	w.fixed = false
 	w.steps = withStep(w.steps, pathStep{kind: elemStep, index: arrayIndex})
 	w.current = w.current.Index(arrayIndex)
+
 	return w.derefAlloc()
 }
 
@@ -157,9 +166,11 @@ func (w *pathWalk) mapEntry(part string) bool {
 		if mapValueType.Kind() == reflect.Pointer {
 			newMapValue.Set(reflect.New(mapValueType.Elem()))
 		}
+
 		m.SetMapIndex(mapKey, newMapValue)
 		mapValue = m.MapIndex(mapKey)
 	}
+
 	w.fixed = false
 	w.steps = withStep(w.steps, pathStep{kind: keyStep, key: mapKey.Interface()})
 
@@ -178,10 +189,12 @@ func (w *pathWalk) mapEntry(part string) bool {
 		w.entries = append(w.entries, mapEntry{m: m, key: mapKey, value: entry})
 		mapValue = entry
 	}
+
 	w.current = mapValue
 	if w.current.Kind() == reflect.Pointer {
 		w.current = w.current.Elem()
 	}
+
 	return true
 }
 
@@ -199,6 +212,7 @@ func (w *pathWalk) structField(part string, last bool) (*field, bool) {
 	if !found {
 		return nil, false
 	}
+
 	w.steps = indexSteps(w.steps, index)
 
 	// If this is the last part and it's a slice, or a pointer to one, create
@@ -213,6 +227,7 @@ func (w *pathWalk) structField(part string, last bool) (*field, bool) {
 			// reads .value, so this is sufficient to set the slice.
 			structField = reflect.StructField{Name: part, Type: fieldValue.Type()}
 		}
+
 		w.current = fieldValue
 		// ensureSliceSize stores the updated entries back into their maps.
 		return w.field(structField.Name, structField), true
@@ -229,13 +244,17 @@ func (w *pathWalk) derefAlloc() bool {
 	if w.current.Kind() != reflect.Pointer {
 		return true
 	}
+
 	if w.current.IsNil() {
 		if !w.current.CanSet() {
 			return false
 		}
+
 		w.current.Set(reflect.New(w.current.Type().Elem()))
 	}
+
 	w.current = w.current.Elem()
+
 	return true
 }
 
@@ -258,13 +277,17 @@ func (w *pathWalk) field(name string, sf reflect.StructField) *field {
 // not nil, on the types alone (see indexedPathType).
 func (cf *loadState) slicePathResolves(tagged *field, rest, parts []string) bool {
 	t, fixed := reflect.TypeOf(cf.conf), true
+
 	if tagged != nil {
 		if rest == nil {
 			return derefType(tagged.field.Type).Kind() == reflect.Slice
 		}
+
 		t, fixed, parts = tagged.field.Type, false, rest
 	}
+
 	t, _, ok := cf.indexedPathType(t, parts, fixed)
+
 	return ok && derefType(t).Kind() == reflect.Slice
 }
 
@@ -285,6 +308,7 @@ func (cf *loadState) setNestedStructField(ctx context.Context, structValue refle
 	if len(pathParts) == 0 {
 		return nil
 	}
+
 	navigator := &fieldNavigator{
 		cf:          cf,
 		structValue: structValue,
@@ -292,6 +316,7 @@ func (cf *loadState) setNestedStructField(ctx context.Context, structValue refle
 		value:       value,
 		steps:       steps,
 	}
+
 	return navigator.navigate(ctx)
 }
 
@@ -308,6 +333,7 @@ func (fn *fieldNavigator) navigate(ctx context.Context) error {
 			if fn.cf.options.strict && isLeafType(currentValue.Type()) {
 				return fmt.Errorf("%w: %s in path %s", ErrFieldNotFound, part, strings.Join(fn.pathParts, fn.cf.options.envSectionDelimiter))
 			}
+
 			return nil
 		}
 
@@ -318,8 +344,10 @@ func (fn *fieldNavigator) navigate(ctx context.Context) error {
 			if fn.cf.options.strict {
 				return fmt.Errorf("%w: %s in path %s", ErrFieldNotFound, part, strings.Join(fn.pathParts, fn.cf.options.envSectionDelimiter))
 			}
+
 			return nil
 		}
+
 		steps = indexSteps(steps, index)
 
 		done, err := fn.processField(ctx, fieldValue, i, &currentValue, &steps)
@@ -337,8 +365,10 @@ func (fn *fieldNavigator) dereferencePointer(value reflect.Value) reflect.Value 
 		if value.IsNil() {
 			value.Set(reflect.New(value.Type().Elem()))
 		}
+
 		return value.Elem()
 	}
+
 	return value
 }
 
@@ -373,16 +403,19 @@ func (fn *fieldNavigator) processField(
 	}
 
 	*currentValue = fieldValue
+
 	return false, nil
 }
 
 // handleMapField handles map field navigation. steps locates the map.
 func (fn *fieldNavigator) handleMapField(ctx context.Context, fieldValue reflect.Value, partIndex int, steps []pathStep) error {
 	mapKey := fn.pathParts[partIndex+1]
+
 	mapKeyValue, ok := envMapKey(fieldValue.Type(), mapKey)
 	if !ok {
 		return nil
 	}
+
 	mapValueType := fieldValue.Type().Elem()
 
 	// Entries of a map of maps are set as on the nested-section path, once
@@ -392,19 +425,24 @@ func (fn *fieldNavigator) handleMapField(ctx context.Context, fieldValue reflect
 			if missing != "" && fn.cf.options.strict {
 				return fmt.Errorf("%w: %s in path %s", ErrFieldNotFound, missing, strings.Join(fn.pathParts, fn.cf.options.envSectionDelimiter))
 			}
+
 			return nil
 		}
+
 		return fn.cf.setNestedFieldValue(ctx, &field{value: fieldValue}, fn.pathParts[partIndex+1:], fn.value, steps, false)
 	}
 
 	if fn.isMapValuePrimitive(mapValueType) {
 		return fn.handleMapWithPrimitiveValue(ctx, fieldValue, mapKeyValue, mapValueType, partIndex, steps)
 	}
+
 	if fieldValue.IsNil() {
 		fn.cf.noteEnvGrowth(fieldValue, 0, steps)
 		fieldValue.Set(reflect.MakeMap(fieldValue.Type()))
 	}
+
 	entrySteps := withStep(steps, pathStep{kind: keyStep, key: mapKeyValue.Interface()})
+
 	return fn.handleMapWithStructValue(ctx, fieldValue, mapKeyValue, mapValueType, partIndex, entrySteps)
 }
 
@@ -428,6 +466,7 @@ func (fn *fieldNavigator) handleMapWithPrimitiveValue(ctx context.Context,
 		if fn.cf.options.strict && isLeafType(mapValueType) {
 			return fmt.Errorf("%w: %s in path %s", ErrFieldNotFound, fn.pathParts[partIndex+2], strings.Join(fn.pathParts, fn.cf.options.envSectionDelimiter))
 		}
+
 		return nil
 	}
 
@@ -456,6 +495,7 @@ func (fn *fieldNavigator) handleMapWithStructValue(
 	}
 
 	fieldValue.SetMapIndex(mapKeyValue, structValue)
+
 	return nil
 }
 
@@ -487,8 +527,10 @@ func (cf *loadState) setNestedFieldValue(ctx context.Context, fld *field, pathPa
 			if cf.options.strict {
 				return fmt.Errorf("%w: %s", ErrFieldNotFound, part)
 			}
+
 			return nil
 		}
+
 		steps = indexSteps(steps, index)
 
 		if i == len(pathParts)-1 {
@@ -496,6 +538,7 @@ func (cf *loadState) setNestedFieldValue(ctx context.Context, fld *field, pathPa
 			if fieldValue.CanSet() {
 				return cf.setFieldValue(ctx, fieldValue, value, steps)
 			}
+
 			return nil
 		}
 		// Continue navigation
@@ -554,6 +597,7 @@ func (cf *loadState) setNestedMapEntry(ctx context.Context, m reflect.Value, pat
 
 	// Set the updated struct back to the map
 	m.SetMapIndex(mapKeyValue, tempField.value)
+
 	return nil
 }
 
@@ -565,22 +609,27 @@ func (cf *loadState) setNestedMapEntry(ctx context.Context, m reflect.Value, pat
 // they are allocated only for a value that assigns. steps locates m.
 func (cf *loadState) setMapEntryValue(ctx context.Context, m, key reflect.Value, value string, steps []pathStep) error {
 	leaf := reflect.New(derefType(m.Type().Elem())).Elem()
+
 	assigned, err := cf.setEnvValue(ctx, leaf, value)
 	if err != nil || !assigned {
 		return err
 	}
+
 	newValue := leaf
 	for newValue.Type() != m.Type().Elem() {
 		ptr := reflect.New(newValue.Type())
 		ptr.Elem().Set(newValue)
 		newValue = ptr
 	}
+
 	if m.IsNil() {
 		cf.noteEnvGrowth(m, 0, steps)
 		m.Set(reflect.MakeMap(m.Type()))
 	}
+
 	m.SetMapIndex(key, newValue)
 	cf.markEnv(withStep(steps, pathStep{kind: keyStep, key: key.Interface()}))
+
 	return nil
 }
 
@@ -596,9 +645,11 @@ func cutIndexSuffix(level string) (base, index string, ok bool) {
 	if !found || index == "" {
 		return level, "", false
 	}
+
 	if _, err := strconv.Atoi(index); err != nil {
 		return level, "", false
 	}
+
 	return base, index, true
 }
 
@@ -613,10 +664,12 @@ func (cf *loadState) findFieldIndex(structValue reflect.Value, fieldName string,
 	if !ok {
 		return reflect.Value{}, nil, false
 	}
+
 	v := structValue
 	for _, i := range sf.Index {
 		v = dereferencePointer(v).Field(i)
 	}
+
 	return v, sf.Index, true
 }
 
@@ -648,25 +701,32 @@ func (cf *loadState) findStructFieldIn(
 			return structType.Field(i), &names[i], true
 		}
 	}
+
 	extended := false
+
 	for i := range names {
 		if !names[i].anonymous {
 			continue
 		}
+
 		f := structType.Field(i)
+
 		ft := derefType(f.Type)
 		if ft.Kind() != reflect.Struct || ft == structType || slices.Contains(path, ft) ||
 			!f.IsExported() && f.Type.Kind() == reflect.Pointer {
 			continue
 		}
+
 		if !extended {
 			path, extended = append(slices.Clip(path), structType), true
 		}
+
 		if sf, sfNames, ok := cf.findStructFieldIn(ft, fieldName, fixed, path); ok {
 			sf.Index = append(slices.Clip(f.Index), sf.Index...)
 			return sf, sfNames, true
 		}
 	}
+
 	return reflect.StructField{}, nil, false
 }
 
@@ -676,7 +736,9 @@ func dereferencePointer(value reflect.Value) reflect.Value {
 		if value.IsNil() {
 			value.Set(reflect.New(value.Type().Elem()))
 		}
+
 		return value.Elem()
 	}
+
 	return value
 }

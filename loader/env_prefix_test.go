@@ -164,6 +164,7 @@ func TestLoad_EnvPrefixWhitespaceOnly(t *testing.T) {
 
 	for _, raw := range []string{"   ", " _ ", "__"} {
 		require.Empty(t, appinfo.NormalizeEnvKeyPrefix(raw))
+
 		cfg := &prefixConfig{}
 		_, err := loader.New(nil, loader.WithEnvPrefix(raw)).Load(cfg)
 		require.NoError(t, err)

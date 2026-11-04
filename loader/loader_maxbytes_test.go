@@ -29,15 +29,15 @@ func TestLoad_RespectsMaxConfigBytes(t *testing.T) {
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "huge.yaml")
 
-	const cap = 1024
+	const limit = 1024
 	require.NoError(t, os.WriteFile(configPath,
-		[]byte("appName: x\nfiller: "+strings.Repeat("a", cap*4)+"\n"),
+		[]byte("appName: x\nfiller: "+strings.Repeat("a", limit*4)+"\n"),
 		0o644))
 
 	cfg := &TestConfig{}
 	l := loader.New(nil,
 		loader.WithPath(configPath),
-		loader.WithMaxConfigBytes(cap),
+		loader.WithMaxConfigBytes(limit),
 	)
 
 	_, err := l.Load(cfg)
@@ -52,15 +52,16 @@ func TestLoad_MaxConfigBytesBoundsIncludes(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
-	const cap = 1024
+
+	const limit = 1024
 	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "big.yaml"),
-		[]byte("filler: "+strings.Repeat("a", cap*4)+"\n"), 0o600))
+		[]byte("filler: "+strings.Repeat("a", limit*4)+"\n"), 0o600))
 	configPath := filepath.Join(tmpDir, "root.yaml")
 	require.NoError(t, os.WriteFile(configPath, []byte("appName: x\n!include big.yaml\n"), 0o600))
 
 	l := loader.New(nil,
 		loader.WithPath(configPath),
-		loader.WithMaxConfigBytes(cap),
+		loader.WithMaxConfigBytes(limit),
 	)
 
 	_, err := l.Load(&TestConfig{})

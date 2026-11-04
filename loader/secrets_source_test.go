@@ -47,17 +47,21 @@ func newCountingManager(values map[string]string) *countingManager {
 func (m *countingManager) Resolve(_ context.Context, key string) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	m.lookups[key]++
+
 	v, ok := m.values[key]
 	if !ok {
 		return "", coreerrs.ErrNotFound
 	}
+
 	return strings.Clone(v), nil
 }
 
 func (m *countingManager) count(key string) int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	return m.lookups[key]
 }
 
@@ -78,6 +82,7 @@ func TestLoad_WholeCollectionSecrets(t *testing.T) {
 		"app:hosts":   "a.example,b.example",
 		"app:ports":   "80,443",
 	})
+
 	t.Setenv("SECRETWHOLETEST_HEADERS", "$__secret{app:headers}")
 	t.Setenv("SECRETWHOLETEST_HOSTS", "$__secret{app:hosts}")
 	t.Setenv("SECRETWHOLETEST_PORTS", "$__secret{app:ports}")
@@ -160,9 +165,11 @@ func TestLoad_FileSecretAnchors(t *testing.T) {
 	type intValue struct {
 		Value int `yaml:"value"`
 	}
+
 	type strValue struct {
 		Value string `yaml:"value"`
 	}
+
 	type cfgT struct {
 		Base  string            `yaml:"base"`
 		A     string            `yaml:"a"`
@@ -174,6 +181,7 @@ func TestLoad_FileSecretAnchors(t *testing.T) {
 		M     map[string]string `yaml:"m"`
 		Plain string            `yaml:"plain"`
 	}
+
 	manager := newCountingManager(map[string]string{"app:pw": "8080"})
 
 	for name, content := range map[string]string{
@@ -191,6 +199,7 @@ func TestLoad_FileSecretAnchors(t *testing.T) {
 			require.NotContains(t, err.Error(), "8080")
 		})
 	}
+
 	require.Zero(t, manager.count("app:pw"))
 
 	cfg := &cfgT{}
@@ -213,6 +222,7 @@ func TestLoad_LaterFileOverridesFileSecret(t *testing.T) {
 		Hosts    []string          `yaml:"hosts"`
 		M        map[string]string `yaml:"m"`
 	}
+
 	manager := newCountingManager(map[string]string{"app:x": "resolved", "app:old": "old"})
 	err := loadFiles(t, nil, &cfgT{}, map[string]string{
 		"a.yaml": "password: $__secret{app:missing}\n",
@@ -238,6 +248,7 @@ func TestLoad_FileSecretsUnsupportedBackend(t *testing.T) {
 	type cfgT struct {
 		Password string `toml:"password"`
 	}
+
 	manager := newCountingManager(map[string]string{"app:x": "v"})
 	err := loadFiles(t, &toml.Backend{}, &cfgT{}, map[string]string{"a.toml": "password = \"$__secret{app:x}\"\n"},
 		loader.WithSecretResolver(manager))
@@ -268,6 +279,7 @@ func TestLoad_DefaultAndEnvPayloadsStayLiteral(t *testing.T) {
 	require.Equal(t, "\x00ATL_RESOLVED\x00$__secret{app:other}", cfg.Marker)
 
 	t.Setenv("SECRETENVMARKERTEST_MARKER", "$__secret{app:marker}")
+
 	s := "aliased"
 	aliased := &struct {
 		Marker *string `yaml:"marker"`
@@ -286,8 +298,11 @@ func TestLoad_EnvOverridesTypedFileSecret(t *testing.T) {
 		Port    int           `yaml:"port"`
 		Timeout time.Duration `yaml:"timeout"`
 	}
+
 	manager := newCountingManager(map[string]string{"app:port": "8080", "app:t": "2s"})
+
 	t.Setenv("SECRETTYPEDOVERTEST_PORT", "9090")
+
 	cfg := &cfgT{}
 	require.NoError(t, loadFiles(t, nil, cfg, map[string]string{"a.yaml": "port: $__secret{app:port}\ntimeout: $__secret{app:t}\n"},
 		loader.WithEnvPrefix("SECRETTYPEDOVERTEST"), loader.WithSecretResolver(manager)))
@@ -313,12 +328,14 @@ func requireNoSecret(t testing.TB, err error) {
 func requireNoneOf(t testing.TB, err error, secretValues ...string) {
 	t.Helper()
 	require.Error(t, err)
+
 	shown := err.Error() + "\n" + fmt.Sprintf("%+v", err) + "\n" + fmt.Sprintf("%v", err) + "\n" + fmt.Sprintf("%s", err)
 	for _, secret := range secretValues {
 		forms := []string{secret, strconv.Quote(secret), fmt.Sprintf("%q", secret)[1:], hex.EncodeToString([]byte(secret))}
 		if _, after, ok := strings.Cut(secret, ":"); ok {
 			forms = append(forms, after)
 		}
+
 		for _, form := range forms {
 			for i := min(4, len(form)); i <= len(form); i++ {
 				require.NotContains(t, shown, form[:i], "the error shows a form of a secret")
@@ -336,6 +353,7 @@ func (*quotingType) UnmarshalYAML(decode func(any) error) error {
 	if err := decode(&value); err != nil {
 		return err
 	}
+
 	return fmt.Errorf("quotingType: bad value %q", value)
 }
 
@@ -356,6 +374,7 @@ func TestLoad_SecretValuesNeverInErrors(t *testing.T) {
 		Timeout time.Duration `yaml:"timeout"`
 		Custom  quotingType   `yaml:"custom"`
 	}
+
 	for _, field := range []string{"port", "on", "timeout", "custom"} {
 		t.Run("file "+field, func(t *testing.T) {
 			err := loadFiles(t, nil, &fileCfg{}, map[string]string{"a.yaml": field + ": $__secret{app:bad}\n"}, opts("SECRETLEAKFILETEST")...)
@@ -371,6 +390,7 @@ func TestLoad_SecretValuesNeverInErrors(t *testing.T) {
 		Ports   []int          `yaml:"ports"`
 		Hosts   map[string]int `yaml:"hosts"`
 	}
+
 	for _, name := range []string{"PORT", "TIMEOUT", "PORTS", "HOSTS"} {
 		t.Run("env "+name, func(t *testing.T) {
 			prefix := "SECRETLEAKENV" + name + "TEST"
@@ -386,6 +406,7 @@ func TestLoad_SecretValuesNeverInErrors(t *testing.T) {
 			Port  int   `yaml:"port" default:"$__secret{app:bad}"`
 			Ports []int `yaml:"ports" default:"$__secret{app:bad}"`
 		}
+
 		_, err := loader.New(&yaml3.Backend{}, opts("SECRETLEAKDEFAULTTEST")...).Load(&defaultCfg{})
 		require.ErrorIs(t, err, loader.ErrSecretValueInvalid)
 		requireNoSecret(t, err)
@@ -432,8 +453,10 @@ func TestLoad_ErrorsWithheldAfterSecrets(t *testing.T) {
 			requireNoSecret(t, err)
 		})
 	}
+
 	t.Run("environment", func(t *testing.T) {
 		t.Setenv("SECRETSCRUBENVTEST_TOKEN", "$__secret{app:token}")
+
 		_, err := loader.New(&yaml3.Backend{}, loader.WithEnvPrefix("SECRETSCRUBENVTEST"), loader.WithSecretResolver(manager)).Load(&quotingValidator{})
 		require.ErrorIs(t, err, errRejected)
 		requireNoSecret(t, err)
@@ -463,11 +486,14 @@ func TestLoad_EscapedSecretFormsWithheld(t *testing.T) {
 	for i, v := range escapingSecrets {
 		values[fmt.Sprintf("app:s%d", i)] = v
 	}
+
 	manager := newCountingManager(values)
+
 	for i := range escapingSecrets {
 		for _, verb := range []string{"%q", "%v", "%x", "%s", "%+q"} {
 			t.Run(fmt.Sprintf("%d %s", i, verb), func(t *testing.T) {
 				t.Parallel()
+
 				cfg := &formattingValidator{verb: verb}
 				err := loadFiles(t, nil, cfg, map[string]string{"a.yaml": fmt.Sprintf("token: $__secret{app:s%d}\n", i)},
 					loader.WithSecretResolver(manager))
@@ -501,6 +527,7 @@ func (v *mapValidator) Validate() error {
 	for name, password := range v.Users {
 		errs = append(errs, fmt.Errorf("user %s: password %q: %w", name, password, errRejected))
 	}
+
 	return errors.Join(errs...)
 }
 
@@ -509,8 +536,11 @@ func (v *mapValidator) Validate() error {
 // parallel.
 func TestLoad_SecretCollectionPartsWithheld(t *testing.T) {
 	const secret = "admin:supersecret,guest:hunter2pw"
+
 	manager := newCountingManager(map[string]string{"app:users": secret})
+
 	t.Setenv("SECRETCOLLPARTSTEST_USERS", "$__secret{app:users}")
+
 	_, err := loader.New(&yaml3.Backend{}, loader.WithEnvPrefix("SECRETCOLLPARTSTEST"), loader.WithSecretResolver(manager)).Load(&mapValidator{})
 	require.ErrorIs(t, err, errRejected)
 	requireNoneOf(t, err, secret, "supersecret", "hunter2pw")
@@ -569,6 +599,7 @@ type eachGroup struct {
 // Validate rejects every level, group name and entry.
 func (v *eachValidated) Validate() error {
 	reject := validation.By(func(any) error { return errRejected })
+
 	return validationconfig.ValidateStruct(v,
 		validation.Field(&v.Levels, validation.Each(reject)),
 		validation.Field(&v.Groups),
@@ -587,10 +618,12 @@ func (g eachGroup) Validate() error {
 // matches. It mutates the environment, so it is not parallel.
 func TestLoad_WithheldPathsAreSchemaStatic(t *testing.T) {
 	const secret = "confidential-token:invalid"
+
 	manager := newCountingManager(map[string]string{"app:levels": secret, "app:name": "group-secret-name"})
 
 	t.Setenv("SECRETSTATICPATHTEST_LEVELS", "$__secret{app:levels}")
 	t.Setenv("SECRETSTATICPATHTEST_BY_NAME__privatekey__NAME", "$__secret{app:name}")
+
 	cfg := &eachValidated{Groups: []eachGroup{{Name: "g"}}}
 	_, err := loader.New(&yaml3.Backend{}, loader.WithEnvPrefix("SECRETSTATICPATHTEST"), loader.WithSecretResolver(manager)).Load(cfg)
 	require.ErrorIs(t, err, errRejected)
@@ -602,10 +635,13 @@ func TestLoad_WithheldPathsAreSchemaStatic(t *testing.T) {
 	type counted struct {
 		N int `yaml:"n"`
 	}
+
 	type countsCfg struct {
 		Counts map[string]counted `yaml:"counts"`
 	}
+
 	t.Setenv("SECRETSTATICENVTEST_COUNTS__privatekey__N", "$__secret{app:name}")
+
 	_, err = loader.New(&yaml3.Backend{}, loader.WithEnvPrefix("SECRETSTATICENVTEST"), loader.WithSecretResolver(manager)).Load(&countsCfg{})
 	require.ErrorIs(t, err, loader.ErrBindEnv)
 	require.Equal(t, "environment failed for SECRETSTATICENVTEST_COUNTS__*__N (secrets were resolved; details withheld)", err.Error())
@@ -626,6 +662,7 @@ func TestLoad_EscapedFilePlaceholders(t *testing.T) {
 		C    string `yaml:"c"`
 		Port int    `yaml:"port"`
 	}
+
 	manager := newCountingManager(map[string]string{"app:pw": "s3cret", "app:port": "8080"})
 	escaped := `a: "\x24__secret{app:pw}"` + "\n" + `b: "\u0024__secret{app:pw}"` + "\n" + `c: '$__secret{app:pw}'` + "\n" +
 		`port: "\x24__secret{app:port}"` + "\n"
@@ -633,6 +670,7 @@ func TestLoad_EscapedFilePlaceholders(t *testing.T) {
 	for name, extra := range map[string]string{"alone": "", "with an unrelated placeholder": "# $__secret{app:unrelated}\n"} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+
 			cfg := &cfgT{}
 			require.NoError(t, loadFiles(t, nil, cfg, map[string]string{"a.yaml": extra + escaped}, loader.WithSecretResolver(manager)))
 			require.Equal(t, cfgT{A: "s3cret", B: "s3cret", C: "s3cret", Port: 8080}, *cfg)
@@ -646,6 +684,7 @@ func TestLoad_EscapedFilePlaceholders(t *testing.T) {
 	type tomlCfg struct {
 		Password string `toml:"password"`
 	}
+
 	err := loadFiles(t, &toml.Backend{}, &tomlCfg{}, map[string]string{"a.toml": "password = \"\\u0024__secret{app:pw}\"\n"},
 		loader.WithSecretResolver(manager))
 	require.ErrorIs(t, err, loader.ErrSecretsUnsupported)
@@ -658,16 +697,20 @@ func TestLoad_EscapedFilePlaceholders(t *testing.T) {
 // mutates the environment, so it is not parallel.
 func TestLoad_DefaultTagPlaceholderFromVariable(t *testing.T) {
 	manager := newCountingManager(map[string]string{"app:port": "8080", "app:bad": leakySecret})
+
 	type cfgT struct {
 		Port int `yaml:"port" default:"${SECRETDEFAULTVARREF}"`
 	}
+
 	t.Setenv("SECRETDEFAULTVARREF", "$__secret{app:port}")
+
 	cfg := &cfgT{}
 	_, err := loader.New(&yaml3.Backend{}, loader.WithEnvPrefix("SECRETDEFAULTVARTEST"), loader.WithSecretResolver(manager)).Load(cfg)
 	require.NoError(t, err)
 	require.Equal(t, 8080, cfg.Port)
 
 	t.Setenv("SECRETDEFAULTVARREF", "$__secret{app:bad}")
+
 	_, err = loader.New(&yaml3.Backend{}, loader.WithEnvPrefix("SECRETDEFAULTVARTEST"), loader.WithSecretResolver(manager)).Load(&cfgT{})
 	require.ErrorIs(t, err, loader.ErrSecretValueInvalid)
 	requireNoSecret(t, err)
@@ -684,6 +727,7 @@ func TestLoad_TaggedFileSecrets(t *testing.T) {
 		B   string `yaml:"b"`
 		Raw []byte `yaml:"raw"`
 	}
+
 	manager := newCountingManager(map[string]string{"app:pw": "s3cret"})
 	b64 := func(s string) string { return base64.StdEncoding.EncodeToString([]byte(s)) }
 
@@ -705,6 +749,7 @@ func TestLoad_TaggedFileSecrets(t *testing.T) {
 			require.NotContains(t, err.Error(), "s3cret")
 		})
 	}
+
 	require.Zero(t, manager.count("app:pw"))
 	require.Zero(t, manager.count("app:missing"))
 
@@ -727,10 +772,13 @@ func (c *customRejecting) UnmarshalYAML(decode func(any) error) error {
 	if err := decode(&value); err != nil {
 		return err
 	}
+
 	if value == "bad" || strings.Contains(value, "Ω") {
 		return fmt.Errorf("value %q: %w", value, errCustom)
 	}
+
 	c.v = value
+
 	return nil
 }
 
@@ -745,11 +793,12 @@ func TestLoad_DecodeErrorsKeepIdentityAfterSecrets(t *testing.T) {
 		Password string          `yaml:"password"`
 		Custom   customRejecting `yaml:"custom"`
 	}
+
 	manager := newCountingManager(map[string]string{"app:pw": "s3cret", "app:bad": leakySecret})
 
 	t.Run("unknown field", func(t *testing.T) {
 		t.Parallel()
-		err := loadFiles(t, nil, &cfgT{}, map[string]string{"a.yaml": "password: $__secret{app:pw}\nunknwon: 1\n"},
+		err := loadFiles(t, nil, &cfgT{}, map[string]string{"a.yaml": "password: $__secret{app:pw}\nunknown: 1\n"},
 			loader.WithSecretResolver(manager))
 		require.ErrorIs(t, err, backend.ErrUnknownField)
 		require.ErrorIs(t, err, loader.ErrDecode)
@@ -782,7 +831,9 @@ func TestLoad_MergeKeyFollowsYAMLRules(t *testing.T) {
 	type cfgT struct {
 		Labels map[string]string `yaml:"labels"`
 	}
+
 	manager := newCountingManager(map[string]string{"app:pw": "s3cret"})
+
 	for name, content := range map[string]string{
 		"double quoted": "labels:\n  \"<<\": $__secret{app:pw}\n",
 		"single quoted": "labels:\n  '<<': $__secret{app:pw}\n",
@@ -790,11 +841,13 @@ func TestLoad_MergeKeyFollowsYAMLRules(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+
 			cfg := &cfgT{}
 			require.NoError(t, loadFiles(t, nil, cfg, map[string]string{"a.yaml": content}, loader.WithSecretResolver(manager)))
 			require.Equal(t, map[string]string{"<<": "s3cret"}, cfg.Labels)
 		})
 	}
+
 	err := loadFiles(t, nil, &cfgT{}, map[string]string{"a.yaml": "labels:\n  <<: {k: \"$__secret{app:pw}\"}\n"},
 		loader.WithSecretResolver(manager))
 	require.ErrorIs(t, err, loader.ErrSecretInAnchor)
@@ -809,9 +862,11 @@ func TestLoad_TypedSequenceKeysWithSecrets(t *testing.T) {
 		Pairs    map[[2]string]string `yaml:"pairs"`
 		Password string               `yaml:"password"`
 	}
+
 	content := "pairs:\n  ? [a, b]\n  : value\npassword: plain\n"
 	without := &cfgT{}
 	require.NoError(t, loadFiles(t, nil, without, map[string]string{"a.yaml": content}))
+
 	with := &cfgT{}
 	manager := newCountingManager(map[string]string{"app:pw": "s3cret"})
 	require.NoError(t, loadFiles(t, nil, with, map[string]string{"a.yaml": content}, loader.WithSecretResolver(manager)))
@@ -830,13 +885,16 @@ func TestLoad_HostileDocumentsWithSecrets(t *testing.T) {
 	t.Parallel()
 
 	manager := newCountingManager(map[string]string{"app:pw": "s3cret"})
+
 	var laughs strings.Builder
 	laughs.WriteString("a: &a [\"lol\",\"lol\",\"lol\",\"lol\",\"lol\",\"lol\",\"lol\",\"lol\",\"lol\"]\n")
+
 	prev := "a"
 	for _, name := range []string{"b", "c", "d", "e", "f", "g", "h", "i"} {
 		fmt.Fprintf(&laughs, "%s: &%s [*%s,*%s,*%s,*%s,*%s,*%s,*%s,*%s,*%s]\n", name, name, prev, prev, prev, prev, prev, prev, prev, prev, prev)
 		prev = name
 	}
+
 	for name, content := range map[string]string{
 		"cycle":  "a: &x\n  b: *x\n",
 		"laughs": laughs.String(),
@@ -874,6 +932,7 @@ type parseConfig struct {
 // the secret. It mutates the environment, so it is not parallel.
 func TestLoad_SecretParseErrorsKeepIdentity(t *testing.T) {
 	manager := newCountingManager(map[string]string{"app:bad": leakySecret})
+
 	cases := []struct {
 		field, env string
 		sentinel   error
@@ -933,6 +992,7 @@ var invalidUTF8Secret = strings.Repeat("\xff", 16) + "\x80\xfe" + strings.Repeat
 // It mutates the environment, so it is not parallel.
 func TestLoad_InvalidUTF8FileSecrets(t *testing.T) {
 	manager := newCountingManager(map[string]string{"app:key": invalidUTF8Secret})
+
 	type cfgT struct {
 		Plain    string                  `yaml:"plain"`
 		Redacted redacted.RedactedString `yaml:"redacted"`
@@ -941,6 +1001,7 @@ func TestLoad_InvalidUTF8FileSecrets(t *testing.T) {
 			Key redacted.RedactedString `yaml:"key"`
 		} `yaml:"nested"`
 	}
+
 	content := "plain: $__secret{app:key}\nredacted: $__secret{app:key}\nany: $__secret{app:key}\n" +
 		"nested:\n  key: $__secret{app:key}\n"
 	cfg := &cfgT{}
@@ -952,6 +1013,7 @@ func TestLoad_InvalidUTF8FileSecrets(t *testing.T) {
 
 	// The environment keeps the bytes as well.
 	t.Setenv("SECRETUTF8ENVTEST_PLAIN", "$__secret{app:key}")
+
 	fromEnv := &cfgT{}
 	_, err := loader.New(&yaml3.Backend{}, loader.WithEnvPrefix("SECRETUTF8ENVTEST"), loader.WithSecretResolver(manager)).Load(fromEnv)
 	require.NoError(t, err)
@@ -960,6 +1022,7 @@ func TestLoad_InvalidUTF8FileSecrets(t *testing.T) {
 	type numeric struct {
 		Port int `yaml:"port"`
 	}
+
 	err = loadFiles(t, nil, &numeric{}, map[string]string{"a.yaml": "port: $__secret{app:key}\n"}, loader.WithSecretResolver(manager))
 	require.ErrorIs(t, err, loader.ErrSecretValueInvalid)
 	requireNoneOf(t, err, invalidUTF8Secret)
@@ -991,13 +1054,16 @@ func TestLoad_PartialSecretSupportFailsClosed(t *testing.T) {
 	type cfgT struct {
 		Password string `yaml:"password"`
 	}
+
 	manager := newCountingManager(map[string]string{"app:pw": "s3cret"})
+
 	for _, content := range []string{"password: $__secret{app:missing}\n", "password: \"\\x24__secret{app:pw}\"\n"} {
 		cfg := &cfgT{}
 		err := loadFiles(t, &partialBackend{}, cfg, map[string]string{"a.yaml": content}, loader.WithSecretResolver(manager))
 		require.ErrorIs(t, err, loader.ErrSecretsUnsupported)
 		require.Empty(t, cfg.Password)
 	}
+
 	require.NoError(t, loadFiles(t, &partialBackend{}, &cfgT{}, map[string]string{"a.yaml": "password: plain\n"},
 		loader.WithSecretResolver(manager)))
 }
@@ -1031,16 +1097,20 @@ func TestLoad_NumericKindsFromFileSecrets(t *testing.T) {
 		"f32": "1.5", "f64": "2.25", "flag": "true",
 	}
 	values := map[string]string{}
+
 	var literal, placeholders strings.Builder
+
 	for _, name := range slices.Sorted(maps.Keys(fields)) {
 		values["app:"+name] = fields[name]
 		fmt.Fprintf(&literal, "%s: %s\n", name, fields[name])
 		fmt.Fprintf(&placeholders, "%s: $__secret{app:%s}\n", name, name)
 	}
+
 	manager := newCountingManager(values)
 
 	want := &numericKinds{}
 	require.NoError(t, loadFiles(t, nil, want, map[string]string{"a.yaml": literal.String()}))
+
 	got := &numericKinds{}
 	require.NoError(t, loadFiles(t, nil, got, map[string]string{"a.yaml": placeholders.String()}, loader.WithSecretResolver(manager)))
 	require.Equal(t, want, got)

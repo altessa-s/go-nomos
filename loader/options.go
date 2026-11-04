@@ -90,6 +90,7 @@ func (o *options) normalization() {
 	if o.path != "" {
 		o.path = filepath.Clean(o.path)
 	}
+
 	o.envPrefix = appinfo.NormalizeEnvKeyPrefix(o.envPrefix)
 }
 

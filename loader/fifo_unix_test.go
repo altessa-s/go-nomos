@@ -28,10 +28,12 @@ func TestLoad_RejectsFIFO(t *testing.T) {
 	require.NoError(t, syscall.Mkfifo(filepath.Join(dir, "extra.yaml"), 0o600))
 
 	done := make(chan error, 1)
+
 	go func() {
 		_, err := loader.New(&yaml3.Backend{}, loader.WithPath(dir)).LoadContext(t.Context(), &nameConfig{})
 		done <- err
 	}()
+
 	select {
 	case err := <-done:
 		require.ErrorIs(t, err, loader.ErrNotRegularFile)

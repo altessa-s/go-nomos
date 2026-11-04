@@ -67,6 +67,7 @@ func FuzzPreprocessNeverReadsOutsideTheRoot(f *testing.F) {
 		_ = os.Symlink(outside, filepath.Join(root, "link.yaml"))
 
 		backend := &yaml3.Backend{}
+
 		out, err := backend.Preprocess(content, root, root, 0)
 		if err != nil {
 			require.Empty(t, out, "a rejected document must not also produce output")
@@ -104,6 +105,7 @@ func FuzzDecodeIsDeterministic(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, data []byte) {
 		var first, again map[string]any
+
 		firstErr := backend.Decode(bytes.NewReader(data), &first)
 		againErr := backend.Decode(bytes.NewReader(data), &again)
 
@@ -111,6 +113,7 @@ func FuzzDecodeIsDeterministic(f *testing.F) {
 		// outcome must not depend on which read it is.
 		require.Equal(t, firstErr == nil, againErr == nil,
 			"decoding the same document twice gave different outcomes (%v, %v): %q", firstErr, againErr, data)
+
 		if firstErr != nil {
 			return
 		}

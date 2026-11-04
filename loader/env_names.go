@@ -60,6 +60,7 @@ func (n *fieldEnvNames) matches(name string, fixed bool) bool {
 	if fixed && n.valueEnvTag {
 		return false
 	}
+
 	return slices.Contains(n.levels, name)
 }
 
@@ -71,14 +72,18 @@ func (cf *loadState) structEnvNames(t reflect.Type) []fieldEnvNames {
 	if names, ok := cf.envNames[t]; ok {
 		return names
 	}
+
 	names := make([]fieldEnvNames, t.NumField())
 	for i := range names {
 		names[i] = cf.computeFieldEnvNames(t.Field(i))
 	}
+
 	if cf.envNames == nil {
 		cf.envNames = make(map[reflect.Type][]fieldEnvNames)
 	}
+
 	cf.envNames[t] = names
+
 	return names
 }
 
@@ -103,14 +108,17 @@ func (cf *loadState) fieldNames(fld *field) *fieldEnvNames {
 // fieldEnvNames).
 func (cf *loadState) computeLevelNames(sf reflect.StructField) []string {
 	fieldName := corestrings.ToScreamingSnakeCase(sf.Name)
+
 	tagName := structTagName(sf, cf.options.structTag)
 	if tagName == "" {
 		return []string{fieldName}
 	}
+
 	tagName = corestrings.ToScreamingSnakeCase(tagName)
 	if tagName == fieldName {
 		return []string{fieldName}
 	}
+
 	return []string{tagName, fieldName}
 }
 
@@ -121,16 +129,20 @@ func (cf *loadState) envFieldNames(fld *field) []string {
 	if fld.isStructPtr() {
 		return nil
 	}
+
 	if own := cf.fieldNames(fld); own.valueEnvTag {
 		if name := cf.envTagVarName(own.envTag); name != "" {
 			return []string{name}
 		}
+
 		return nil // env:"-"
 	}
 
 	names := []string{""}
+
 	for f := fld; f != nil; f = f.parent {
 		levels := cf.fieldNames(f).levels
+
 		next := make([]string, 0, len(names)*len(levels))
 		for _, level := range levels {
 			for _, rest := range names {
@@ -138,11 +150,14 @@ func (cf *loadState) envFieldNames(fld *field) []string {
 					next = append(next, level)
 					continue
 				}
+
 				next = append(next, level+cf.options.envSectionDelimiter+rest)
 			}
 		}
+
 		names = next
 	}
+
 	return names
 }
 
@@ -156,14 +171,17 @@ func (cf *loadState) envTagVarName(envTag string) string {
 	if envTag == "" || envTag == "-" {
 		return ""
 	}
+
 	if prefix := cf.options.envPrefix; prefix != "" {
 		if rest, ok := strings.CutPrefix(envTag, appEnvTagPrefix); ok && rest != "" {
 			return rest
 		}
+
 		if rest, ok := strings.CutPrefix(envTag, prefix); ok && rest != "" {
 			return rest
 		}
 	}
+
 	return envTag
 }
 
@@ -178,6 +196,7 @@ type taggedField struct {
 // tag names a variable, with that name.
 func (cf *loadState) collectEnvTagged() []taggedField {
 	var tagged []taggedField
+
 	for _, fld := range cf.fields {
 		if names := cf.fieldNames(fld); names.valueEnvTag {
 			if name := cf.envTagVarName(names.envTag); name != "" {
@@ -185,6 +204,7 @@ func (cf *loadState) collectEnvTagged() []taggedField {
 			}
 		}
 	}
+
 	return tagged
 }
 
@@ -201,34 +221,44 @@ func (cf *loadState) collectEnvTagged() []taggedField {
 // A key no tag claims is resolved by its path names.
 func (cf *loadState) findTaggedCollection(key string, slice bool) (*field, []string) {
 	delimiter := cf.options.envSectionDelimiter
+
 	var (
 		found   *field
 		entries []string
 		longest = -1
 	)
+
 	for _, tf := range cf.envTagged {
 		fld, name := tf.fld, tf.name
+
 		rest, ok := strings.CutPrefix(key, name)
 		if !ok || len(name) <= longest {
 			continue
 		}
+
 		if rest == "" {
 			found, entries, longest = fld, nil, len(name)
 			continue
 		}
+
 		if !isCollectionType(fld.field.Type) {
 			continue
 		}
+
 		if rest, ok = strings.CutPrefix(rest, delimiter); !ok {
 			continue
 		}
+
 		path := strings.Split(rest, delimiter)
+
 		t, ok := cf.entryPathType(fld.field.Type, path)
 		if !ok || slice && derefType(t).Kind() != reflect.Slice {
 			continue
 		}
+
 		found, entries, longest = fld, path, len(name)
 	}
+
 	return found, entries
 }
 
@@ -254,13 +284,17 @@ func (cf *loadState) entryPathType(t reflect.Type, path []string) (reflect.Type,
 			if !ok {
 				return nil, false
 			}
+
 			t = sf.Type
+
 			continue
 		default:
 			return nil, false
 		}
+
 		t = t.Elem()
 	}
+
 	return t, true
 }
 
@@ -280,11 +314,13 @@ func (cf *loadState) settablePath(t reflect.Type, path []string, fixed bool) (mi
 			if !hasEnvMapKeys(t) {
 				return "", false
 			}
+
 			t, fixed = t.Elem(), false
 			if i < len(path)-1 && !isNestedEntryType(t) {
 				if isLeafType(t) {
 					return path[i+1], false
 				}
+
 				return "", false
 			}
 		case reflect.Struct:
@@ -292,14 +328,17 @@ func (cf *loadState) settablePath(t reflect.Type, path []string, fixed bool) (mi
 			if !found {
 				return part, false
 			}
+
 			t = sf.Type
 		default:
 			if isLeafType(t) {
 				return part, false
 			}
+
 			return "", false
 		}
 	}
+
 	return "", true
 }
 
@@ -319,25 +358,31 @@ func (cf *loadState) indexedPathType(t reflect.Type, parts []string, fixed bool)
 			if t.Kind() != reflect.Slice {
 				return nil, belowValue(t, part), false
 			}
+
 			t, fixed = t.Elem(), false
+
 			continue
 		}
+
 		switch t.Kind() {
 		case reflect.Map:
 			if !hasEnvMapKeys(t) {
 				return nil, "", false
 			}
+
 			t, fixed = t.Elem(), false
 		case reflect.Struct:
 			sf, found := cf.findStructFieldRecursive(t, part, fixed)
 			if !found {
 				return nil, part, false
 			}
+
 			t = sf.Type
 		default:
 			return nil, belowValue(t, part), false
 		}
 	}
+
 	return t, "", true
 }
 
@@ -347,6 +392,7 @@ func belowValue(t reflect.Type, part string) string {
 	if isLeafType(t) {
 		return part
 	}
+
 	return ""
 }
 
@@ -361,9 +407,12 @@ func (cf *loadState) indexedKeyResolves(key string, parts []string) bool {
 		if entryPath == nil {
 			return false // The plain-field pass set it.
 		}
+
 		t, fixed, parts = tagged.field.Type, false, entryPath
 	}
+
 	_, missing, ok := cf.indexedPathType(t, parts, fixed)
+
 	return ok || cf.options.strict && missing != ""
 }
 
@@ -380,6 +429,7 @@ func envMapKey(t reflect.Type, part string) (reflect.Value, bool) {
 	if !hasEnvMapKeys(t) {
 		return reflect.Value{}, false
 	}
+
 	return reflect.ValueOf(part).Convert(t.Key()), true
 }
 
@@ -420,27 +470,36 @@ func isNestedEntryType(t reflect.Type) bool {
 // struct tag spelling wins.
 func (cf *loadState) envTarget(key string) (target string, rank int, ok bool) {
 	delimiter := cf.options.envSectionDelimiter
+
 	var b strings.Builder
+
 	t, fixed := reflect.TypeOf(cf.conf), true
+
 	var path []string
+
 	if tagged, entryPath := cf.findTaggedCollection(key, false); tagged != nil {
 		for _, i := range tagged.index {
 			b.WriteString("#")
 			b.WriteString(strconv.Itoa(i))
 		}
+
 		t, fixed, path = tagged.field.Type, false, entryPath
 	} else {
 		path = strings.Split(key, delimiter)
 	}
+
 	for _, part := range path {
 		t = derefType(t)
+
 		var level string
+
 		switch t.Kind() {
 		case reflect.Slice, reflect.Array:
 			index, err := strconv.Atoi(part)
 			if err != nil || index < 0 {
 				return "", 0, false
 			}
+
 			level = strconv.Itoa(index)
 			fixed, t = false, t.Elem()
 		case reflect.Map:
@@ -451,17 +510,21 @@ func (cf *loadState) envTarget(key string) (target string, rank int, ok bool) {
 			if !found {
 				return "", 0, false
 			}
+
 			if len(names.levels) > 1 && part == names.levels[1] {
 				rank++
 			}
+
 			level = sf.Name
 			t = sf.Type
 		default:
 			return "", 0, false
 		}
+
 		b.WriteString(delimiter)
 		b.WriteString(level)
 	}
+
 	return b.String(), rank, true
 }
 
@@ -472,6 +535,7 @@ func structTagName(sf reflect.StructField, key string) string {
 	if name == "-" {
 		return ""
 	}
+
 	return name
 }
 

@@ -30,6 +30,7 @@ func TestValidateStruct_OtherInternalErrors(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
+
 			err := validationconfig.ValidateStruct(tc.structPtr)
 			ie, ok := errors.AsType[validation.InternalError](err)
 			require.True(t, ok, "got %v", err)

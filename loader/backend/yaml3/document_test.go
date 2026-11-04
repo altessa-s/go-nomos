@@ -43,6 +43,7 @@ func TestBackend_PrepareDocument_Decodes(t *testing.T) {
 	t.Parallel()
 
 	b := &yaml3.Backend{}
+
 	var cfg struct {
 		A int `yaml:"a"`
 	}
@@ -56,14 +57,17 @@ func TestBackend_Encode(t *testing.T) {
 	type inner struct {
 		Port int `yaml:"port"`
 	}
+
 	type config struct {
 		Name   string   `yaml:"name"`
 		Server inner    `yaml:"server"`
 		Tags   []string `yaml:"tags"`
 	}
+
 	in := config{Name: "svc", Server: inner{Port: 8080}, Tags: []string{"a", "b"}}
 
 	b := &yaml3.Backend{}
+
 	var buf bytes.Buffer
 	require.NoError(t, b.Encode(&buf, in))
 	require.Contains(t, buf.String(), "server:\n    port: 8080\n", "nested values are indented by four spaces")
@@ -81,6 +85,7 @@ func TestBackend_Encode_Errors(t *testing.T) {
 	t.Parallel()
 
 	b := &yaml3.Backend{}
+
 	t.Run("writer error", func(t *testing.T) {
 		t.Parallel()
 		// yaml.v3 reports the writer's error as text, without wrapping it.

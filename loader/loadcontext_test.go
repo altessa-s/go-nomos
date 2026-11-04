@@ -29,7 +29,9 @@ func (m *blockingManager) Resolve(ctx context.Context, _ string) (string, error)
 	default:
 		close(m.started)
 	}
+
 	<-ctx.Done()
+
 	return "", ctx.Err()
 }
 
@@ -41,6 +43,7 @@ type nameConfig struct {
 // It mutates the process environment via t.Setenv, so it is not parallel.
 func TestLoadContext_EndedContext(t *testing.T) {
 	t.Setenv("LOADCTXENDEDTEST_NAME", "$__secret{app:name}")
+
 	manager := newCountingManager(map[string]string{"app:name": "x"})
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
@@ -56,8 +59,10 @@ func TestLoadContext_EndedContext(t *testing.T) {
 // It mutates the process environment via t.Setenv, so it is not parallel.
 func TestLoadContext_CancelStopsSecretLookup(t *testing.T) {
 	t.Setenv("LOADCTXCANCELTEST_NAME", "$__secret{app:name}")
+
 	manager := &blockingManager{started: make(chan struct{})}
 	ctx, cancel := context.WithCancel(t.Context())
+
 	go func() {
 		<-manager.started
 		cancel()
@@ -75,6 +80,7 @@ func TestLoadContext_CancelStopsSecretLookup(t *testing.T) {
 // It mutates the process environment via t.Setenv, so it is not parallel.
 func TestLoad_UsesBackgroundContext(t *testing.T) {
 	t.Setenv("LOADCTXBGTEST_NAME", "$__secret{app:name}")
+
 	manager := newCountingManager(map[string]string{"app:name": "resolved"})
 	cfg := &nameConfig{}
 	_, err := loader.New(&yaml3.Backend{}, loader.WithEnvPrefix("LOADCTXBGTEST"), loader.WithSecretResolver(manager)).Load(cfg)
@@ -88,19 +94,23 @@ func TestLoad_UsesBackgroundContext(t *testing.T) {
 // It mutates the process environment via t.Setenv, so it is not parallel.
 func TestLoadContext_QueuedLoadHonorsItsContext(t *testing.T) {
 	t.Setenv("LOADCTXQUEUETEST_NAME", "$__secret{app:name}")
+
 	manager := &blockingManager{started: make(chan struct{})}
 	l := loader.New(&yaml3.Backend{}, loader.WithEnvPrefix("LOADCTXQUEUETEST"), loader.WithSecretResolver(manager))
 
 	firstCtx, cancelFirst := context.WithCancel(t.Context())
 	done := make(chan error, 1)
+
 	go func() {
 		_, err := l.LoadContext(firstCtx, &nameConfig{})
 		done <- err
 	}()
+
 	<-manager.started
 
 	queuedCtx, cancelQueued := context.WithTimeout(t.Context(), 50*time.Millisecond)
 	defer cancelQueued()
+
 	start := time.Now()
 	_, err := l.LoadContext(queuedCtx, &nameConfig{Name: "queued"})
 	require.ErrorIs(t, err, context.DeadlineExceeded)
@@ -108,6 +118,7 @@ func TestLoadContext_QueuedLoadHonorsItsContext(t *testing.T) {
 
 	cancelFirst()
 	require.Error(t, <-done)
+
 	if got, ok := l.Config().(*nameConfig); ok {
 		require.NotEqual(t, "queued", got.Name, "the queued load must not replace the configuration")
 	}
@@ -129,6 +140,7 @@ func (c *cancelingConfig) Validate() error {
 func TestLoadContext_EndsDuringValidation(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
+
 	_, err := loader.New(&yaml3.Backend{}, loader.WithEnvPrefix("LOADCTXVALIDATETEST")).
 		LoadContext(ctx, &cancelingConfig{cancel: cancel})
 	require.ErrorIs(t, err, context.Canceled)
@@ -158,8 +170,10 @@ func (c *defaultingConfig) Default() { *c.defaulted = true }
 // It mutates the process environment via t.Setenv, so it is not parallel.
 func TestLoadContext_CanceledBeforeDefaults(t *testing.T) {
 	t.Setenv("LOADCTXDEFAULTSTEST_NAME", "$__secret{app:name}")
+
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
+
 	defaulted := false
 
 	_, err := loader.New(&yaml3.Backend{}, loader.WithEnvPrefix("LOADCTXDEFAULTSTEST"),
@@ -178,13 +192,16 @@ type deadlineManager struct {
 
 func (m *deadlineManager) Resolve(ctx context.Context, key string) (string, error) {
 	deadline, _ := ctx.Deadline()
+
 	m.mu.Lock()
 	first := len(m.deadlines) == 0
 	m.deadlines = append(m.deadlines, deadline)
 	m.mu.Unlock()
+
 	if first {
 		time.Sleep(100 * time.Millisecond)
 	}
+
 	return "v", nil
 }
 

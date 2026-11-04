@@ -62,15 +62,18 @@ func getenv(key string) string {
 // a field and win precedence are expanded.
 func envValues(prefix string) map[string]string {
 	envs := make(map[string]string)
+
 	for _, s := range os.Environ() {
 		key, value, ok := strings.Cut(s, "=")
 		if !ok {
 			continue
 		}
+
 		if name, ok := strings.CutPrefix(key, prefix); ok && name != "" {
 			envs[name] = value
 		}
 	}
+
 	return envs
 }
 
@@ -81,6 +84,7 @@ func expandEnvValue(value string, strict bool) (string, error) {
 	if strict {
 		return unwrapEnvValueStrict(value)
 	}
+
 	return unwrapEnvValue(value), nil
 }
 
@@ -98,6 +102,7 @@ func normalizeEnvKey(key, delimiter string) string {
 	// Replace [ with the delimiter and remove ]
 	normalized := strings.ReplaceAll(key, "[", delimiter)
 	normalized = strings.ReplaceAll(normalized, "]", "")
+
 	return normalized
 }
 
@@ -123,6 +128,7 @@ func decodeDollarSentinel(s string) string {
 	if !strings.Contains(s, dollarSentinel) {
 		return s
 	}
+
 	return strings.ReplaceAll(s, dollarSentinel, envVarDollarPrefix)
 }
 
@@ -147,6 +153,7 @@ func unwrapEnvValueWithDepthAndOriginal(value, original string, depth int, visit
 			if isWholeEnvRef(envValue) {
 				return envValue
 			}
+
 			return value // Return current value for complex expressions
 		}
 
@@ -218,6 +225,7 @@ func scanDollarTokens(
 		if dollarIndex == -1 {
 			break
 		}
+
 		dollarIndex += offset
 
 		// Escape: `$$` collapses to a literal `$` (encoded as a sentinel so it
@@ -227,11 +235,13 @@ func scanDollarTokens(
 			result = result[:dollarIndex] + dollarSentinel + result[dollarIndex+2:]
 			offset = dollarIndex + len(dollarSentinel)
 			changed = true
+
 			continue
 		}
 
 		// Scan the variable name: contiguous [A-Za-z0-9_].
 		start := dollarIndex + 1
+
 		end := start
 		for end < len(result) && isEnvNameByte(result[end]) {
 			end++
@@ -244,10 +254,12 @@ func scanDollarTokens(
 			if err != nil {
 				return "", false, err
 			}
+
 			if action == tokenSubstitute {
 				result = result[:dollarIndex] + replacement + result[end:]
 				offset = dollarIndex + len(replacement)
 				changed = true
+
 				continue
 			}
 			// tokenKeepLiteral falls through to the literal-preserve branch.
@@ -274,11 +286,13 @@ func isWholeEnvRef(value string) bool {
 	if len(value) < 2 || value[0] != '$' {
 		return false
 	}
+
 	for i := 1; i < len(value); i++ {
 		if !isEnvNameByte(value[i]) {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -295,6 +309,7 @@ func assertStructPointer(conf any) error {
 	if t == nil || t.Kind() != reflect.Pointer || indirectType(t).Kind() != reflect.Struct {
 		return ErrInvalidConfig
 	}
+
 	return nil
 }
 
@@ -321,6 +336,7 @@ func lookupRef(ref string) (string, bool) {
 	if value, ok := lookupEnv(name); ok {
 		return value, true
 	}
+
 	return fallback, hasFallback
 }
 
@@ -347,6 +363,7 @@ func unwrapEnvValueStrict(value string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	return decodeDollarSentinel(result), nil
 }
 
@@ -366,6 +383,7 @@ func unwrapEnvValueStrictWithDepth(value, original string, depth int, visited ma
 		if visited[key] {
 			return "", tokenKeepLiteral, nil
 		}
+
 		envValue, ok := lookupEnv(key)
 		if !ok {
 			return "", tokenSubstitute, fmt.Errorf("%w: $%s", ErrUndefinedEnvVar, key)
@@ -389,6 +407,7 @@ func unwrapEnvValueStrictWithDepth(value, original string, depth int, visited ma
 // (a reference cycle) is not expanded again.
 func unwrapWholeEnvRefStrict(value, original string, depth int, visited map[string]bool) (string, error) {
 	key := value[1:]
+
 	envValue, ok := lookupEnv(key)
 	if !ok {
 		return "", fmt.Errorf("%w: $%s", ErrUndefinedEnvVar, key)
@@ -398,6 +417,7 @@ func unwrapWholeEnvRefStrict(value, original string, depth int, visited map[stri
 		if isWholeEnvRef(envValue) {
 			return envValue, nil
 		}
+
 		return value, nil
 	}
 
@@ -406,6 +426,7 @@ func unwrapWholeEnvRefStrict(value, original string, depth int, visited map[stri
 	}
 
 	visited[key] = true
+
 	return unwrapEnvValueStrictWithDepth(envValue, original, depth+1, visited)
 }
 
@@ -414,15 +435,19 @@ func unwrapWholeEnvRefStrict(value, original string, depth int, visited map[stri
 // default. A variable that is defined but set to an empty string is not considered an error.
 func substituteEnvVariablesStrict(input string) (string, error) {
 	var firstErr error
+
 	result := os.Expand(protectSecretPlaceholders(input), func(ref string) string {
 		val, ok := lookupRef(ref)
 		if !ok && firstErr == nil {
 			firstErr = fmt.Errorf("%w: ${%s}", ErrUndefinedEnvVar, ref)
 		}
+
 		return val
 	})
+
 	if firstErr != nil {
 		return "", firstErr
 	}
+
 	return restoreSecretPlaceholders(result), nil
 }

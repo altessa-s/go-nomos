@@ -36,8 +36,10 @@ another:
 `
 
 	b.ResetTimer()
+
 	for b.Loop() {
 		var result map[string]any
+
 		reader := strings.NewReader(yamlContent)
 		if err := backend.Decode(reader, &result); err != nil {
 			b.Fatalf("Decode error: %v", err)
@@ -50,11 +52,13 @@ func BenchmarkBackend_DecodeKeys(b *testing.B) {
 		Name   string `yaml:"name"`
 		Weight int    `yaml:"weight"`
 	}
+
 	type config struct {
 		Name  string          `yaml:"name"`
 		Items []item          `yaml:"items"`
 		ByID  map[string]item `yaml:"byID"`
 	}
+
 	content := `
 name: svc
 items:
@@ -72,6 +76,7 @@ byID:
 		if err != nil {
 			b.Fatalf("DecodeKeys error: %v", err)
 		}
+
 		fs, _ := root.Fields(t)
 		_, _ = fs[1].Elems(t.Field(1).Type)
 		_, _ = fs[2].Entries(t.Field(2).Type)
@@ -90,6 +95,7 @@ func BenchmarkBackend_DecodeStrict(b *testing.B) {
 		} `yaml:"items"`
 		Meta map[string]any `yaml:"meta"`
 	}
+
 	content := "name: svc\nsection:\n  num: 42\n  enabled: true\nitems:\n  - id: 1\nmeta:\n  free:\n    form: 1\n"
 	backend := &yaml3.Backend{}
 
@@ -111,6 +117,7 @@ func largeMapping(n int) string {
 		sb.WriteString(strconv.Itoa(i))
 		sb.WriteByte('\n')
 	}
+
 	return sb.String()
 }
 
@@ -119,9 +126,11 @@ func largeMapping(n int) string {
 func aliasedDocument(n int) string {
 	var sb strings.Builder
 	sb.WriteString("base: &b {a: 1, b: 2, c: 3}\nitems:\n")
+
 	for range n {
 		sb.WriteString("  - *b\n")
 	}
+
 	return sb.String()
 }
 
@@ -130,8 +139,10 @@ func aliasedDocument(n int) string {
 func BenchmarkBackend_Decode_LargeMapping(b *testing.B) {
 	content := largeMapping(5000)
 	be := &yaml3.Backend{}
+
 	b.ReportAllocs()
 	b.SetBytes(int64(len(content)))
+
 	for b.Loop() {
 		var out map[string]string
 		if err := be.Decode(strings.NewReader(content), &out); err != nil {
@@ -143,8 +154,10 @@ func BenchmarkBackend_Decode_LargeMapping(b *testing.B) {
 func BenchmarkBackend_DecodeStrict_LargeMapping(b *testing.B) {
 	content := largeMapping(5000)
 	be := &yaml3.Backend{}
+
 	b.ReportAllocs()
 	b.SetBytes(int64(len(content)))
+
 	for b.Loop() {
 		var out map[string]string
 		if err := be.DecodeStrict(strings.NewReader(content), &out); err != nil {
@@ -162,10 +175,12 @@ func BenchmarkBackend_CheckDocument(b *testing.B) {
 		{name: "aliases", content: aliasedDocument(1000)},
 	}
 	be := &yaml3.Backend{}
+
 	for _, tc := range cases {
 		b.Run(tc.name, func(b *testing.B) {
 			b.ReportAllocs()
 			b.SetBytes(int64(len(tc.content)))
+
 			for b.Loop() {
 				if err := be.CheckDocument(tc.content); err != nil {
 					b.Fatalf("CheckDocument error: %v", err)
@@ -178,6 +193,7 @@ func BenchmarkBackend_CheckDocument(b *testing.B) {
 func BenchmarkBackend_RewriteScalars(b *testing.B) {
 	content := largeMapping(1000)
 	be := &yaml3.Backend{}
+
 	cases := []struct {
 		name    string
 		rewrite backend.ScalarRewrite
@@ -198,6 +214,7 @@ func BenchmarkBackend_RewriteScalars(b *testing.B) {
 	for _, tc := range cases {
 		b.Run(tc.name, func(b *testing.B) {
 			b.ReportAllocs()
+
 			for b.Loop() {
 				if _, err := be.RewriteScalars(content, tc.rewrite); err != nil {
 					b.Fatalf("RewriteScalars error: %v", err)
@@ -216,9 +233,11 @@ func BenchmarkBackend_PrepareDocument(b *testing.B) {
 		{name: "content", content: largeMapping(200)},
 	}
 	be := &yaml3.Backend{}
+
 	for _, tc := range cases {
 		b.Run(tc.name, func(b *testing.B) {
 			b.ReportAllocs()
+
 			for b.Loop() {
 				_ = be.PrepareDocument(tc.content)
 			}
@@ -228,11 +247,14 @@ func BenchmarkBackend_PrepareDocument(b *testing.B) {
 
 func BenchmarkBackend_Encode(b *testing.B) {
 	var value map[string]string
+
 	be := &yaml3.Backend{}
 	if err := be.Decode(strings.NewReader(largeMapping(1000)), &value); err != nil {
 		b.Fatal(err)
 	}
+
 	b.ReportAllocs()
+
 	for b.Loop() {
 		if err := be.Encode(io.Discard, value); err != nil {
 			b.Fatalf("Encode error: %v", err)
@@ -245,9 +267,12 @@ func BenchmarkBackend_CommentPaths(b *testing.B) {
 	for i := range 500 {
 		sb.WriteString("section" + strconv.Itoa(i) + ":\n  key: v # note\n  other: w\n")
 	}
+
 	content := []byte(sb.String())
 	be := &yaml3.Backend{}
+
 	b.ReportAllocs()
+
 	for b.Loop() {
 		if _, err := be.CommentPaths(content); err != nil {
 			b.Fatalf("CommentPaths error: %v", err)
@@ -258,7 +283,9 @@ func BenchmarkBackend_CommentPaths(b *testing.B) {
 func BenchmarkBackend_Uncomment(b *testing.B) {
 	content := []byte(strings.Repeat("# heading\n#key: value\n#  - item\n#mask: ****\n", 250))
 	be := &yaml3.Backend{}
+
 	b.ReportAllocs()
+
 	for b.Loop() {
 		_ = be.Uncomment(content)
 	}
@@ -267,7 +294,9 @@ func BenchmarkBackend_Uncomment(b *testing.B) {
 func BenchmarkBackend_IsFullyCommented(b *testing.B) {
 	content := []byte(strings.Repeat("# heading\n#key: value\n\n", 300))
 	be := &yaml3.Backend{}
+
 	b.ReportAllocs()
+
 	for b.Loop() {
 		_ = be.IsFullyCommented(content)
 	}

@@ -33,6 +33,7 @@ func (conv *Markdown) Render(ctx context.Context, configData map[string]any) ([]
 	for key := range envVars {
 		keys = append(keys, key)
 	}
+
 	slices.Sort(keys)
 
 	// Group keys by top-level section
@@ -47,10 +48,12 @@ func (conv *Markdown) Render(ctx context.Context, configData map[string]any) ([]
 
 	// Add table of contents
 	builder.WriteString("## Table of Contents\n\n")
+
 	for _, sectionName := range getSortedSectionNames(sections) {
 		anchor := strings.ToLower(strings.ReplaceAll(sectionName, "_", "-"))
 		fmt.Fprintf(&builder, "- [%s Configuration](#%s-configuration)\n", formatSectionName(sectionName), anchor)
 	}
+
 	builder.WriteString("\n")
 
 	// Add sections with tables
@@ -61,6 +64,7 @@ func (conv *Markdown) Render(ctx context.Context, configData map[string]any) ([]
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
+
 	return []byte(builder.String()), nil
 }
 
@@ -86,6 +90,7 @@ func (conv *Markdown) writeSection(
 		if vi.Value != "" {
 			valueCell = markdownCodeCell(vi.Value)
 		}
+
 		fmt.Fprintf(builder, "| %s | %s | %s |\n", markdownCodeCell(key), vi.Type, valueCell)
 	}
 
@@ -140,12 +145,14 @@ func (conv *Markdown) processValueWithType(result map[string]variableInfo, key s
 	case reflect.Slice, reflect.Array:
 		// Array - format as [element1,element2,element3]
 		arrayType := conv.detectArrayType(v)
+
 		var arrayValue string
 		if v.Len() == 0 {
 			arrayValue = "[]"
 		} else {
 			var builder strings.Builder
 			builder.WriteByte('[')
+
 			for i := range v.Len() {
 				if i > 0 {
 					builder.WriteByte(',')
@@ -155,9 +162,11 @@ func (conv *Markdown) processValueWithType(result map[string]variableInfo, key s
 					fmt.Fprintf(&builder, "%v", elem)
 				}
 			}
+
 			builder.WriteByte(']')
 			arrayValue = builder.String()
 		}
+
 		result[key] = variableInfo{Value: arrayValue, Type: arrayType}
 
 	case reflect.String:
@@ -192,17 +201,22 @@ func (conv *Markdown) processValueWithType(result map[string]variableInfo, key s
 // Empty arrays and arrays whose elements differ in type report "array".
 func (conv *Markdown) detectArrayType(v reflect.Value) string {
 	const untyped = "array"
+
 	elemType := ""
+
 	for i := range v.Len() {
 		t := conv.detectElementType(v.Index(i))
 		if t == "" || (elemType != "" && t != elemType) {
 			return untyped
 		}
+
 		elemType = t
 	}
+
 	if elemType == "" {
 		return untyped
 	}
+
 	return "[]" + elemType
 }
 
@@ -212,6 +226,7 @@ func (conv *Markdown) detectElementType(elem reflect.Value) string {
 	for elem.Kind() == reflect.Interface && !elem.IsNil() {
 		elem = elem.Elem()
 	}
+
 	switch elem.Kind() {
 	case reflect.String:
 		return stringType
@@ -229,6 +244,7 @@ func (conv *Markdown) detectElementType(elem reflect.Value) string {
 		if nested := conv.detectArrayType(elem); nested != "array" {
 			return nested
 		}
+
 		return ""
 	default:
 		return ""
@@ -242,7 +258,9 @@ func (conv *Markdown) isDuration(value string) bool {
 	if value == "" || value[len(value)-1] >= '0' && value[len(value)-1] <= '9' {
 		return false
 	}
+
 	_, err := time.ParseDuration(value)
+
 	return err == nil
 }
 
@@ -268,6 +286,7 @@ func markdownCodeCell(value string) string {
 	if !strings.ContainsAny(value, "`|\r\n<>&") {
 		return "`" + value + "`"
 	}
+
 	return "<code>" + markdownTextCell(value) + "</code>"
 }
 
@@ -275,5 +294,6 @@ func markdownTextCell(value string) string {
 	value = strings.ReplaceAll(value, "\r\n", "\n")
 	value = strings.ReplaceAll(value, "\r", "\n")
 	value = html.EscapeString(value)
+
 	return strings.NewReplacer("|", "&#124;", "`", "&#96;", "\n", "<br>", "\\", "&#92;", "*", "&#42;", "_", "&#95;", "[", "&#91;", "]", "&#93;").Replace(value)
 }

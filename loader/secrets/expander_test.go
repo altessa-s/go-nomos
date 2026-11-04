@@ -27,10 +27,12 @@ func (m *mockManager) Resolve(_ context.Context, key string) (string, error) {
 	if m.err != nil {
 		return "", m.err
 	}
+
 	v, ok := m.values[key]
 	if !ok {
 		return "", coreerrs.ErrNotFound
 	}
+
 	return strings.Clone(v), nil
 }
 
@@ -246,6 +248,7 @@ func TestExpander_Expand_SinglePass(t *testing.T) {
 	mgr := newMockManager(map[string]string{
 		"app:first": "$__secret", "app:self": "$__secret{app:second}", "app:second": "wrong", "app:odd": "a\x00b$c$$",
 	})
+
 	e := secrets.New(mgr)
 	for in, want := range map[string]string{
 		"$__secret{app:first}{app:second}": "$__secret{app:second}",

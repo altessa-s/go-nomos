@@ -20,23 +20,29 @@ import (
 // returns it.
 func writeBenchFiles(b *testing.B, files map[string]string) string {
 	b.Helper()
+
 	dir := b.TempDir()
 	for name, content := range files {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600); err != nil {
 			b.Fatal(err)
 		}
 	}
+
 	return dir
 }
 
 // runLoad loads cfg once to fail fast on a broken setup, then benchmarks it.
 func runLoad(b *testing.B, l *loader.Config, newCfg func() any) {
 	b.Helper()
+
 	if _, err := l.LoadContext(b.Context(), newCfg()); err != nil {
 		b.Fatal(err)
 	}
+
 	cfg := newCfg()
+
 	b.ReportAllocs()
+
 	for b.Loop() {
 		_, _ = l.LoadContext(b.Context(), cfg)
 	}
@@ -85,6 +91,7 @@ func BenchmarkLoad_Directory(b *testing.B) {
 			"name: svc-%d\nlimit: %d\ndb:\n  host: db-%d\nitems:\n  - name: item-%d\nbyName:\n  k%d:\n    weight: %d\n",
 			i, i, i, i, i, i)
 	}
+
 	dir := writeBenchFiles(b, files)
 	l := loader.New(nil, loader.WithPath(dir), loader.WithSkipEnv())
 	runLoad(b, l, func() any { return &benchConfig{} })
@@ -97,16 +104,21 @@ func BenchmarkLoad_EnvAtScale(b *testing.B) {
 	b.Setenv("BENCHSCALE_LIMIT", "9")
 	b.Setenv("BENCHSCALE_DB__HOST", "db")
 	b.Setenv("BENCHSCALE_DB__PORT", "6543")
+
 	n := 4
+
 	for i := range 32 {
 		b.Setenv(fmt.Sprintf("BENCHSCALE_ITEMS__%d__NAME", i), fmt.Sprintf("item-%d", i))
 		b.Setenv(fmt.Sprintf("BENCHSCALE_ITEMS__%d__WEIGHT", i), fmt.Sprint(i))
 		b.Setenv(fmt.Sprintf("BENCHSCALE_BY_NAME__key%d__WEIGHT", i), fmt.Sprint(i))
+
 		n += 3
 	}
+
 	if n != 100 {
 		b.Fatalf("set %d variables, want 100", n)
 	}
+
 	l := loader.New(nil, loader.WithEnvPrefix("BENCHSCALE"))
 	runLoad(b, l, func() any { return &benchConfig{} })
 }
@@ -136,7 +148,9 @@ func BenchmarkLoad_DefaultsLargeStruct(b *testing.B) {
 	if _, err := l.Load(&benchWideConfig{}); err != nil {
 		b.Fatal(err)
 	}
+
 	b.ReportAllocs()
+
 	for b.Loop() {
 		_, _ = l.Load(&benchWideConfig{})
 	}
@@ -157,11 +171,14 @@ func BenchmarkLoad_DefaultsSubstitution(b *testing.B) {
 	b.Setenv("BENCHSUBST_PORT", "8443")
 	b.Setenv("BENCHSUBST_PATH", "api/v1")
 	b.Setenv("BENCHSUBST_PEER", "peer.internal")
+
 	l := loader.New(nil, loader.WithSkipEnv())
 	if _, err := l.Load(&benchSubstConfig{}); err != nil {
 		b.Fatal(err)
 	}
+
 	b.ReportAllocs()
+
 	for b.Loop() {
 		_, _ = l.Load(&benchSubstConfig{})
 	}

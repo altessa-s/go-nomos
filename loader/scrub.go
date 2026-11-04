@@ -37,17 +37,21 @@ func treeIs(err, target error) bool {
 	if err == nil || target == nil {
 		return err == target
 	}
+
 	if reflect.TypeOf(target).Comparable() && reflect.TypeOf(err).Comparable() && err == target {
 		return true
 	}
+
 	if x, ok := err.(interface{ Is(error) bool }); ok && x.Is(target) {
 		return true
 	}
+
 	for _, c := range children(err) {
 		if treeIs(c, target) {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -61,18 +65,22 @@ func children(err error) []error {
 		if c := u.Unwrap(); c != nil {
 			return []error{c}
 		}
+
 		return nil
 	}
+
 	v := reflect.ValueOf(err)
 	if v.Kind() != reflect.Map || !v.Type().Elem().Implements(errorType) {
 		return nil
 	}
+
 	out := make([]error, 0, v.Len())
 	for it := v.MapRange(); it.Next(); {
 		if c, ok := reflect.TypeAssert[error](it.Value()); ok && c != nil {
 			out = append(out, c)
 		}
 	}
+
 	return out
 }
 
@@ -84,10 +92,12 @@ func (cf *loadState) withholdError(err error) error {
 	if err == nil || !cf.secretsResolved {
 		return err
 	}
+
 	where := strings.Join(cf.errorPaths(err), ", ")
 	if where == "" {
 		where = "configuration"
 	}
+
 	return &withheldError{
 		msg:      fmt.Sprintf("%s failed for %s (secrets were resolved; details withheld)", loadPhase(err), where),
 		original: err,
@@ -121,15 +131,21 @@ const wildcard = "*"
 // names no field, becomes "*", and nothing below it is named from the error.
 func (cf *loadState) errorPaths(err error) []string {
 	root := indirectType(cf.confType)
-	var paths []string
-	var walk func(err error, path []string, t reflect.Type)
+
+	var (
+		paths []string
+		walk  func(err error, path []string, t reflect.Type)
+	)
+
 	walk = func(err error, path []string, t reflect.Type) {
 		if err == nil {
 			return
 		}
+
 		if ev, ok := err.(*envVarErr); ok {
 			paths = append(paths, cf.staticEnvName(ev.key))
 		}
+
 		if v := reflect.ValueOf(err); v.Kind() == reflect.Map && v.Type().Key().Kind() == reflect.String &&
 			v.Type().Elem().Implements(errorType) {
 			for it := v.MapRange(); it.Next(); {
@@ -137,13 +153,17 @@ func (cf *loadState) errorPaths(err error) []string {
 				childPath := append(slices.Clip(path), segment)
 				child, _ := reflect.TypeAssert[error](it.Value())
 				before := len(paths)
+
 				walk(child, childPath, childType)
+
 				if len(paths) == before {
 					paths = append(paths, strings.Join(childPath, "."))
 				}
 			}
+
 			return
 		}
+
 		switch u := err.(type) {
 		case interface{ Unwrap() []error }:
 			for _, c := range u.Unwrap() {
@@ -155,6 +175,7 @@ func (cf *loadState) errorPaths(err error) []string {
 	}
 	walk(err, nil, root)
 	slices.Sort(paths)
+
 	return slices.Compact(paths)
 }
 
@@ -166,6 +187,7 @@ func staticSegment(t reflect.Type, key string) (string, reflect.Type) {
 	if t == nil {
 		return wildcard, nil
 	}
+
 	t = derefType(t)
 	switch t.Kind() {
 	case reflect.Struct:
@@ -173,10 +195,12 @@ func staticSegment(t reflect.Type, key string) (string, reflect.Type) {
 			if !sf.IsExported() {
 				continue
 			}
+
 			if key == sf.Name || key == tagName(sf, "json") || key == tagName(sf, "yaml") {
 				return key, sf.Type
 			}
 		}
+
 		return wildcard, nil
 	case reflect.Map, reflect.Slice, reflect.Array:
 		return wildcard, t.Elem()
@@ -191,6 +215,7 @@ func tagName(sf reflect.StructField, key string) string {
 	if name == "-" {
 		return ""
 	}
+
 	return name
 }
 
@@ -202,27 +227,32 @@ func tagName(sf reflect.StructField, key string) string {
 func (cf *loadState) staticEnvName(key string) string {
 	t := indirectType(cf.confType)
 	levels := strings.Split(key, cf.options.envSectionDelimiter)
+
 	out := make([]string, 0, len(levels))
 	for _, level := range levels {
 		if t == nil {
 			out = append(out, wildcard)
 			continue
 		}
+
 		t = derefType(t)
 		switch t.Kind() {
 		case reflect.Struct:
 			next := reflect.Type(nil)
+
 			for i, names := range cf.structEnvNames(t) {
 				if slices.Contains(names.levels, level) {
 					next = t.Field(i).Type
 					break
 				}
 			}
+
 			if next == nil {
 				out = append(out, wildcard)
 			} else {
 				out = append(out, level)
 			}
+
 			t = next
 		case reflect.Map, reflect.Slice, reflect.Array:
 			out = append(out, wildcard)
@@ -232,6 +262,7 @@ func (cf *loadState) staticEnvName(key string) string {
 			t = nil
 		}
 	}
+
 	return cf.options.envPrefix + strings.Join(out, cf.options.envSectionDelimiter)
 }
 

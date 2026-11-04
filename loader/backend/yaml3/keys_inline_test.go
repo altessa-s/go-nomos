@@ -72,13 +72,17 @@ func TestBackend_DecodeKeys_InlineScalars(t *testing.T) {
 
 	lines := func(n backend.KeyNode) []int {
 		t.Helper()
+
 		l, ok := n.(backend.ScalarLister)
 		require.True(t, ok)
+
 		var out []int
 		for _, p := range l.Scalars() {
 			out = append(out, p.Line)
 		}
+
 		slices.Sort(out)
+
 		return out
 	}
 	require.Equal(t, []int{2}, lines(fs[1]), "host is on line 2")
@@ -93,6 +97,7 @@ func TestBackend_DecodeKeys_FieldsRefused(t *testing.T) {
 	type badInline struct {
 		N int `yaml:",inline"`
 	}
+
 	root := decodeKeys(t, "a: 1\n")
 	_, ok := root.Fields(reflect.TypeFor[badInline]())
 	require.False(t, ok, "an inline int is rejected like yaml.v3 does")

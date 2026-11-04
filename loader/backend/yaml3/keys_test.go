@@ -45,29 +45,37 @@ var keysConfigType = reflect.TypeFor[keysConfig]()
 
 func decodeKeys(t testing.TB, doc string) backend.KeyNode {
 	t.Helper()
+
 	root, err := (&yaml3.Backend{}).DecodeKeys(strings.NewReader(doc))
 	require.NoError(t, err)
+
 	return root
 }
 
 func fields(t testing.TB, n backend.KeyNode, typ reflect.Type) map[int]backend.KeyNode {
 	t.Helper()
+
 	fs, ok := n.Fields(typ)
 	require.True(t, ok)
+
 	return fs
 }
 
 func entries(t testing.TB, n backend.KeyNode, typ reflect.Type) map[any]backend.KeyNode {
 	t.Helper()
+
 	es, ok := n.Entries(typ)
 	require.True(t, ok)
+
 	return es
 }
 
 func fieldIndex(t testing.TB, typ reflect.Type, name string) int {
 	t.Helper()
+
 	sf, ok := typ.FieldByName(name)
 	require.True(t, ok)
+
 	return sf.Index[0]
 }
 
@@ -169,6 +177,7 @@ func TestBackend_DecodeKeys_AliasCycle(t *testing.T) {
 	t.Parallel()
 
 	type nested []nested
+
 	root := decodeKeys(t, "x: &x [*x]\n")
 	es, ok := root.Entries(reflect.TypeFor[map[string]nested]())
 	require.True(t, ok)
@@ -179,9 +188,11 @@ func TestBackend_DecodeKeys_AliasCycle(t *testing.T) {
 		if !ok {
 			return
 		}
+
 		require.Len(t, elems, 1)
 		n = elems[0]
 	}
+
 	t.Fatal("alias cycle was followed more than once")
 }
 
@@ -210,5 +221,6 @@ func TestBackend_DecodeKeys_Concurrent(t *testing.T) {
 			_, _ = items.Elems(reflect.TypeFor[[]keysItem]())
 		})
 	}
+
 	wg.Wait()
 }

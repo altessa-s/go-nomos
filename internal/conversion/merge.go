@@ -22,12 +22,15 @@ func Merge(ctx context.Context, names []string, read func(context.Context, strin
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
+
 	names = slices.Clone(names)
 	slices.Sort(names)
+
 	type result struct {
 		name string
 		data map[string]any
 	}
+
 	results, err := concurrency.ProcessCollect(ctx, names, func(ctx context.Context, name string) (result, error) {
 		data, err := read(ctx, name)
 		return result{name, data}, err
@@ -35,22 +38,28 @@ func Merge(ctx context.Context, names []string, read func(context.Context, strin
 	if err != nil {
 		return nil, err
 	}
+
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
+
 	slices.SortFunc(results, func(a, b result) int { return strings.Compare(a.name, b.name) })
+
 	merged := make(map[string]any)
 	for _, r := range results {
 		mergeInto(merged, r.data)
 	}
+
 	if len(merged) == 0 {
 		return nil, ErrEmptyInput
 	}
+
 	return merged, nil
 }
 func mergeInto(dst, src map[string]any) {
 	for key, value := range src {
 		a, aOK := dst[key].(map[string]any)
+
 		b, bOK := value.(map[string]any)
 		switch {
 		case aOK && bOK:

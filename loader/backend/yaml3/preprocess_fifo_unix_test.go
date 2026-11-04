@@ -39,15 +39,18 @@ func TestBackend_Preprocess_FIFOIncludeRefused(t *testing.T) {
 			t.Parallel()
 			dir := t.TempDir()
 			require.NoError(t, syscall.Mkfifo(filepath.Join(dir, "extra.yaml"), 0o600))
+
 			if tc.nested != "" {
 				require.NoError(t, os.WriteFile(filepath.Join(dir, "middle.yaml"), []byte(tc.nested), 0o600))
 			}
 
 			done := make(chan error, 1)
+
 			go func() {
 				_, err := (&yaml3.Backend{}).Preprocess(tc.main, dir, dir, 0)
 				done <- err
 			}()
+
 			select {
 			case err := <-done:
 				require.ErrorIs(t, err, files.ErrNotRegular)
@@ -67,10 +70,12 @@ func TestBackend_Preprocess_FIFORootRefused(t *testing.T) {
 	require.NoError(t, syscall.Mkfifo(fifo, 0o600))
 
 	done := make(chan error, 1)
+
 	go func() {
 		_, err := (&yaml3.Backend{}).Preprocess("!include extra.yaml\n", fifo, fifo, 0)
 		done <- err
 	}()
+
 	select {
 	case err := <-done:
 		require.Error(t, err)
@@ -83,6 +88,7 @@ func TestBackend_Preprocess_FIFORootRefused(t *testing.T) {
 // filesystem root.
 func TestBackend_Preprocess_EmptyRootRefused(t *testing.T) {
 	t.Parallel()
+
 	_, err := (&yaml3.Backend{}).Preprocess("!include extra.yaml\n", ".", "", 0)
 	require.Error(t, err)
 }

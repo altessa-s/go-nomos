@@ -24,10 +24,13 @@ func TestRewriteScalars(t *testing.T) {
 	t.Parallel()
 
 	content := "key: &a value\nalias: *a\nport: p\nlist:\n  - *a\n  - x\n"
+
 	var offered []string
+
 	out, err := (&yaml3.Backend{}).RewriteScalars(content, func(sc backend.Scalar) (string, bool, bool, error) {
 		offered = append(offered, sc.Value)
 		require.Equal(t, sc.Value == "value", sc.Shared)
+
 		switch sc.Value {
 		case "value":
 			return "null", true, true, nil
@@ -91,6 +94,7 @@ func TestKeyNode_Scalars(t *testing.T) {
 		C string   `yaml:"c"`
 		D []string `yaml:"d"`
 	}
+
 	fields, ok := root.Fields(reflect.TypeFor[struct {
 		A string `yaml:"a"`
 		B inner  `yaml:"b"`
@@ -110,6 +114,7 @@ func TestKeyNode_Scalars(t *testing.T) {
 	for _, pos := range lister.Scalars() {
 		values = append(values, offered[pos])
 	}
+
 	require.ElementsMatch(t, []string{"one", "two", "three"}, values)
 }
 

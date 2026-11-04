@@ -21,11 +21,14 @@ import (
 // from it.
 func loadFiles(t testing.TB, b backend.Backend, cfg any, files map[string]string, opts ...loader.Option) error {
 	t.Helper()
+
 	dir := t.TempDir()
 	for name, content := range files {
 		require.NoError(t, os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600))
 	}
+
 	_, err := loader.New(b, append([]loader.Option{loader.WithPath(dir)}, opts...)...).Load(cfg)
+
 	return err
 }
 
@@ -43,6 +46,7 @@ func TestLoad_TypedMapKeysKeepExplicitZeros(t *testing.T) {
 
 	t.Run("int key", func(t *testing.T) {
 		t.Parallel()
+
 		cfg := &typedKeysConfig{}
 		require.NoError(t, loadFiles(t, nil, cfg, map[string]string{"a.yaml": "byID:\n  0x10: {weight: 0}\n"}))
 		require.Contains(t, cfg.ByID, 16)
@@ -51,6 +55,7 @@ func TestLoad_TypedMapKeysKeepExplicitZeros(t *testing.T) {
 	})
 	t.Run("bool key", func(t *testing.T) {
 		t.Parallel()
+
 		cfg := &typedKeysConfig{}
 		require.NoError(t, loadFiles(t, nil, cfg, map[string]string{"a.yaml": "byFlag:\n  yes: {enabled: false}\n"}))
 		require.Contains(t, cfg.ByFlag, true)
@@ -185,12 +190,14 @@ func TestLoad_EmbeddedStructsFollowBackend(t *testing.T) {
 
 	t.Run("yaml embedded without inline is keyed", func(t *testing.T) {
 		t.Parallel()
+
 		cfg := &yamlEmbeddedConfig{}
 		require.NoError(t, loadFiles(t, nil, cfg, map[string]string{"a.yaml": "embeddedbase:\n  enabled: false\n"}))
 		require.False(t, cfg.Enabled, "the explicit value under the embedded struct's key is kept")
 	})
 	t.Run("yaml excluded embedded", func(t *testing.T) {
 		t.Parallel()
+
 		cfg := &yamlExcludedEmbedConfig{}
 		require.NoError(t, loadFiles(t, nil, cfg, map[string]string{"a.yaml": "enabled: false\n"},
 			loader.WithAllowUnknownFields()))
@@ -198,6 +205,7 @@ func TestLoad_EmbeddedStructsFollowBackend(t *testing.T) {
 	})
 	t.Run("toml embedded with tag name is keyed", func(t *testing.T) {
 		t.Parallel()
+
 		cfg := &tomlNamedEmbedConfig{}
 		require.NoError(t, loadFiles(t, &toml.Backend{}, cfg, map[string]string{"a.toml": "[base]\nenabled = false\n"}))
 		require.False(t, cfg.Enabled)
@@ -332,6 +340,7 @@ func TestLoad_TOMLCaseFoldingFollowsDecoder(t *testing.T) {
 
 	t.Run("files spelling a field differently", func(t *testing.T) {
 		t.Parallel()
+
 		cfg := &tomlFoldConfig{}
 		require.NoError(t, loadFiles(t, &toml.Backend{}, cfg, map[string]string{
 			"a.toml": "[byName.a]\nweight = 0\n",
@@ -342,6 +351,7 @@ func TestLoad_TOMLCaseFoldingFollowsDecoder(t *testing.T) {
 	})
 	t.Run("differently cased sibling", func(t *testing.T) {
 		t.Parallel()
+
 		cfg := &tomlFoldConfig{}
 		require.NoError(t, loadFiles(t, &toml.Backend{}, cfg, map[string]string{"a.toml": "[Foo]\nlimit = 0\n"}))
 		require.Zero(t, cfg.Foo.Limit)
@@ -381,9 +391,11 @@ func (c *mutatingConfig) Default() {
 	if c.Count != nil {
 		*c.Count = 10
 	}
+
 	if len(c.Items) > 0 {
 		c.Items[0].Weight = 10
 	}
+
 	if c.ByName != nil {
 		c.ByName["a"] = mutatingItem{Name: "replacement", Weight: 10}
 	}

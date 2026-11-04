@@ -43,21 +43,28 @@ func (cf *loadState) loadEnvs(ctx context.Context) error {
 	// struct tag spelling wins (see preferredEnvName); every name of the field
 	// is consumed, so the other passes do not set it again.
 	root := reflect.ValueOf(cf.conf).Elem()
+
 	var consumed map[string]struct{}
+
 	cf.fields.each(func(fld *field) bool {
 		names := cf.envFieldNames(fld)
+
 		envName, ok := cf.preferredEnvName(names, envs)
 		if !ok {
 			return true
 		}
+
 		value := fld.value
 		if !value.IsValid() {
 			value = fieldByIndexAlloc(root, fld.index)
 		}
+
 		err = cf.envVarError(envName, cf.setFieldValue(ctx, value, envs[envName], fld.pathSteps()))
+
 		if consumed == nil {
 			consumed = make(map[string]struct{})
 		}
+
 		for _, name := range names {
 			consumed[name] = struct{}{}
 		}
@@ -99,6 +106,7 @@ func (cf *loadState) normalizedEnvs(raw map[string]string) map[string]string {
 			envs[key] = raw[name]
 		}
 	}
+
 	return envs
 }
 
@@ -116,42 +124,53 @@ func (cf *loadState) normalizedEnvs(raw map[string]string) map[string]string {
 // resolves it; a key no tag claims is normalized from the configuration root.
 func (cf *loadState) normalizeEnvName(name string) string {
 	delimiter := cf.options.envSectionDelimiter
+
 	key := normalizeEnvKey(name, delimiter)
 	if !strings.Contains(key, legacyIndexSeparator) || delimiter == legacyIndexSeparator {
 		return key
 	}
+
 	claimed, longest := "", -1
+
 	for _, tf := range cf.envTagged {
 		rest, ok := strings.CutPrefix(key, tf.name)
 		if !ok {
 			continue
 		}
+
 		if rest == "" {
 			return key
 		}
+
 		t := tf.fld.field.Type
 		if len(tf.name) <= longest || !isCollectionType(t) {
 			continue
 		}
+
 		if rest, ok = strings.CutPrefix(rest, delimiter); !ok {
 			continue
 		}
+
 		path := strings.Split(rest, delimiter)
 		if cf.normalizeLevels(t, path, false) {
 			// A rewritten level spans two levels now.
 			path = strings.Split(strings.Join(path, delimiter), delimiter)
 		}
+
 		if _, ok := cf.entryPathType(t, path); ok {
 			claimed, longest = tf.name+delimiter+strings.Join(path, delimiter), len(tf.name)
 		}
 	}
+
 	if longest >= 0 {
 		return claimed
 	}
+
 	parts := strings.Split(key, delimiter)
 	if !cf.normalizeLevels(reflect.TypeOf(cf.conf), parts, true) {
 		return key
 	}
+
 	return strings.Join(parts, delimiter)
 }
 
@@ -164,6 +183,7 @@ func (cf *loadState) normalizeEnvName(name string) string {
 func (cf *loadState) normalizeLevels(t reflect.Type, parts []string, fixed bool) bool {
 	delimiter := cf.options.envSectionDelimiter
 	changed := false
+
 	for i, part := range parts {
 		t = derefType(t)
 		switch t.Kind() {
@@ -174,20 +194,24 @@ func (cf *loadState) normalizeLevels(t reflect.Type, parts []string, fixed bool)
 				t = sf.Type
 				continue
 			}
+
 			base, index, ok := cutIndexSuffix(part)
 			if !ok {
 				return changed
 			}
+
 			sf, found := cf.findStructFieldRecursive(t, base, fixed)
 			if !found || derefType(sf.Type).Kind() != reflect.Slice {
 				return changed
 			}
+
 			parts[i], changed = base+delimiter+index, true
 			t, fixed = derefType(sf.Type).Elem(), false
 		default:
 			return changed
 		}
 	}
+
 	return changed
 }
 
@@ -195,12 +219,15 @@ func (cf *loadState) normalizeLevels(t reflect.Type, parts []string, fixed bool)
 // delimiter, except the ones in consumed.
 func (cf *loadState) nestedEnvKeys(envs map[string]string, consumed map[string]struct{}) []string {
 	var keys []string
+
 	for envKey := range envs {
 		if _, done := consumed[envKey]; !done && strings.Contains(envKey, cf.options.envSectionDelimiter) {
 			keys = append(keys, envKey)
 		}
 	}
+
 	slices.Sort(keys)
+
 	return keys
 }
 
@@ -215,40 +242,50 @@ func (cf *loadState) dropShadowedEnvs(keys []string) []string {
 	if len(keys) < minShadowingKeys {
 		return keys
 	}
+
 	type candidate struct {
 		key  string
 		rank int
 	}
+
 	var (
 		winners map[string]candidate
 		losers  map[string]struct{}
 	)
+
 	for _, envKey := range keys {
 		target, rank, ok := cf.envTarget(envKey)
 		if !ok {
 			continue
 		}
+
 		if winners == nil {
 			winners = make(map[string]candidate)
 		}
+
 		current, seen := winners[target]
 		if !seen {
 			winners[target] = candidate{key: envKey, rank: rank}
 			continue
 		}
+
 		loser := envKey
 		if rank < current.rank || rank == current.rank && envKey < current.key {
 			loser = current.key
 			winners[target] = candidate{key: envKey, rank: rank}
 		}
+
 		if losers == nil {
 			losers = make(map[string]struct{})
 		}
+
 		losers[loser] = struct{}{}
 	}
+
 	if losers == nil {
 		return keys
 	}
+
 	return slices.DeleteFunc(keys, func(key string) bool {
 		_, lost := losers[key]
 		return lost
@@ -260,18 +297,23 @@ func (cf *loadState) dropShadowedEnvs(keys []string) []string {
 // name levels (see aliasLevels), then the first in name order.
 func (cf *loadState) preferredEnvName(names []string, envs map[string]string) (string, bool) {
 	first := -1
+
 	for i, name := range names {
 		if _, ok := envs[name]; !ok {
 			continue
 		}
+
 		if first >= 0 {
 			return cf.preferredOf(names[first:], envs), true
 		}
+
 		first = i
 	}
+
 	if first < 0 {
 		return "", false
 	}
+
 	return names[first], true
 }
 
@@ -282,15 +324,18 @@ func (cf *loadState) preferredOf(names []string, envs map[string]string) string 
 		best     string
 		bestRank int
 	)
+
 	for _, name := range names {
 		if _, ok := envs[name]; !ok {
 			continue
 		}
+
 		_, rank, _ := cf.envTarget(name)
 		if best == "" || rank < bestRank || rank == bestRank && name < best {
 			best, bestRank = name, rank
 		}
 	}
+
 	return best
 }
 
@@ -300,6 +345,7 @@ func (cf *loadState) envVarError(name string, err error) error {
 	if err == nil {
 		return nil
 	}
+
 	return &envVarErr{prefix: cf.options.envPrefix, key: name, err: err}
 }
 
@@ -311,10 +357,13 @@ func fieldByIndexAlloc(v reflect.Value, index []int) reflect.Value {
 			if v.IsNil() {
 				v.Set(reflect.New(v.Type().Elem()))
 			}
+
 			v = v.Elem()
 		}
+
 		v = v.Field(i)
 	}
+
 	return v
 }
 
@@ -328,6 +377,7 @@ func (cf *loadState) noteEnvGrowth(v reflect.Value, n int, steps []pathStep) {
 		if cf.present == nil {
 			cf.present = &presence{}
 		}
+
 		cf.present.markGrown(steps, v.Len())
 	default:
 	}
@@ -338,6 +388,7 @@ func (cf *loadState) markEnv(steps []pathStep) {
 	if cf.present == nil {
 		cf.present = &presence{}
 	}
+
 	cf.present.mark(steps)
 }
 
@@ -351,9 +402,11 @@ func (cf *loadState) setFieldValue(ctx context.Context, fieldValue reflect.Value
 	if err != nil {
 		return err
 	}
+
 	if assigned {
 		cf.markEnv(steps)
 	}
+
 	return nil
 }
 
@@ -371,15 +424,18 @@ func (cf *loadState) setEnvValue(ctx context.Context, fieldValue reflect.Value, 
 	if err != nil {
 		return false, err
 	}
+
 	resolved, err := cf.resolveSecrets(ctx, value)
 	if err != nil {
 		return false, err
 	}
+
 	assigned, err := set(fieldValue, resolved, false, true, cf.options.strict)
 	// An unsupported field type is reported as it is: it names the type,
 	// never the value.
 	if err != nil && loadersecrets.HasSecrets(value) && !errors.Is(err, ErrUnsupportedFieldType) {
 		return false, sealParseError(err, "the value", loadersecrets.References(value))
 	}
+
 	return assigned, err
 }

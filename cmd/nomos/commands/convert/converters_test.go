@@ -71,6 +71,7 @@ func TestConfigToConfigConverter_Convert(t *testing.T) {
 func TestConfigToConfigConverter_ConvertData(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
+
 	tests := []struct {
 		name    string
 		ctx     func(t *testing.T) context.Context
@@ -88,6 +89,7 @@ func TestConfigToConfigConverter_ConvertData(t *testing.T) {
 			ctx: func(t *testing.T) context.Context {
 				ctx, cancel := context.WithCancel(t.Context())
 				cancel()
+
 				return ctx
 			},
 		},
@@ -95,13 +97,16 @@ func TestConfigToConfigConverter_ConvertData(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
+
 			conv := convert.NewConfigToConfigConverter()
+
 			var err error
 			if tc.ctx != nil {
 				err = conv.ConvertDataContext(tc.ctx(t), converterData(), tc.to, tc.format)
 			} else {
 				err = conv.ConvertData(converterData(), tc.to, tc.format)
 			}
+
 			switch {
 			case tc.wantErr != nil:
 				require.ErrorIs(t, err, tc.wantErr)
@@ -111,6 +116,7 @@ func TestConfigToConfigConverter_ConvertData(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, tc.want, readFile(t, tc.to))
 			}
+
 			if tc.wantErr != nil || tc.anyErr {
 				_, statErr := os.Stat(tc.to)
 				require.ErrorIs(t, statErr, os.ErrNotExist)
@@ -122,6 +128,7 @@ func TestConfigToConfigConverter_ConvertData(t *testing.T) {
 func TestConfigToEnvConverter_Convert(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
+
 	tests := []struct {
 		name, file, content, format string
 	}{
@@ -161,6 +168,7 @@ func TestConfigToEnvConverter_ConvertData(t *testing.T) {
 func TestConfigToMarkdownConverter_Convert(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
+
 	tests := []struct {
 		name, file, content, format string
 	}{

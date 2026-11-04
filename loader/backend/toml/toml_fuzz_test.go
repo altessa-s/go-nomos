@@ -61,6 +61,7 @@ func FuzzDecodeIsDeterministic(f *testing.F) {
 		againErr := backend.Decode(bytes.NewReader(data), &again)
 		require.Equal(t, targetErr == nil, againErr == nil,
 			"decoding the same document twice gave different outcomes (%v, %v): %q", targetErr, againErr, data)
+
 		if targetErr != nil {
 			return
 		}

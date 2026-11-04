@@ -16,14 +16,17 @@ func TestMergePresence_Pin(t *testing.T) {
 
 	set := func() *presence { return &presence{set: true} }
 	null := func() *presence { return &presence{set: true, null: true} }
+
 	type pair struct{ A, B int }
 
 	t.Run("absent and null operands", func(t *testing.T) {
 		t.Parallel()
+
 		dst, src := set(), set()
 		intT, ptrT := reflect.TypeFor[int](), reflect.TypeFor[*int]()
 		require.Same(t, dst, mergePresence(dst, nil, intT, false))
 		require.Same(t, src, mergePresence(nil, src, intT, false))
+
 		n := null()
 		require.Same(t, n, mergePresence(dst, n, ptrT, false), "a null resets a pointer")
 		require.Same(t, dst, mergePresence(dst, n, intT, false), "a null leaves an int alone")
@@ -33,6 +36,7 @@ func TestMergePresence_Pin(t *testing.T) {
 
 	t.Run("struct", func(t *testing.T) {
 		t.Parallel()
+
 		typ := reflect.TypeFor[pair]()
 		src := set()
 		require.Same(t, src, mergePresence(&presence{set: true, fields: map[int]*presence{0: set()}}, src, typ, false))
@@ -47,6 +51,7 @@ func TestMergePresence_Pin(t *testing.T) {
 
 	t.Run("map", func(t *testing.T) {
 		t.Parallel()
+
 		typ := reflect.TypeFor[map[string]int]()
 		src := set()
 		require.Same(t, src, mergePresence(&presence{set: true, entries: map[any]*presence{"a": set()}}, src, typ, false))
@@ -72,13 +77,16 @@ func TestMergePresence_Pin(t *testing.T) {
 
 	t.Run("slice", func(t *testing.T) {
 		t.Parallel()
+
 		typ := reflect.TypeFor[[]int]()
 		e0, e1, e2 := set(), set(), set()
 		dst := &presence{set: true, elems: []*presence{e0, e1}, spare: []*presence{e2}}
 		long := &presence{set: true, elems: []*presence{set(), set(), set(), set()}}
 		require.Same(t, long, mergePresence(dst, long, typ, true), "longer than the backing array")
+
 		short := &presence{set: true, elems: []*presence{set()}}
 		require.Same(t, short, mergePresence(dst, short, typ, false), "slices are replaced without reuse")
+
 		noElems := set()
 		require.Same(t, noElems, mergePresence(dst, noElems, typ, true), "no elements")
 
@@ -89,6 +97,7 @@ func TestMergePresence_Pin(t *testing.T) {
 
 	t.Run("array", func(t *testing.T) {
 		t.Parallel()
+
 		typ := reflect.TypeFor[[3]pair]()
 		d0, d1 := &presence{set: true, fields: map[int]*presence{0: set()}}, set()
 		s0 := &presence{set: true, fields: map[int]*presence{1: set()}}
@@ -121,12 +130,14 @@ func TestTakeSnapshot_Pin(t *testing.T) {
 
 	t.Run("a nil pointer to a partly written struct is not snapshotted", func(t *testing.T) {
 		t.Parallel()
+
 		var p *pinSnap
 		require.Nil(t, takeSnapshot(reflect.ValueOf(p), &presence{set: true, fields: map[int]*presence{0: {set: true}}}))
 	})
 
 	t.Run("unexported fields are skipped", func(t *testing.T) {
 		t.Parallel()
+
 		v := pinSnap{Exported: 1, hidden: 2}
 		s := takeSnapshot(reflect.ValueOf(v), &presence{set: true, fields: map[int]*presence{0: {set: true}, 1: {set: true}}})
 		require.NotNil(t, s)
@@ -136,6 +147,7 @@ func TestTakeSnapshot_Pin(t *testing.T) {
 
 	t.Run("map keys of another type are skipped", func(t *testing.T) {
 		t.Parallel()
+
 		v := map[string]int{"a": 1}
 		s := takeSnapshot(reflect.ValueOf(v), &presence{set: true, entries: map[any]*presence{
 			nil: {set: true}, struct{}{}: {set: true}, "a": {set: true},

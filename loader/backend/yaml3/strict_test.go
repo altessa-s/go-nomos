@@ -97,12 +97,14 @@ func TestBackend_DecodeStrict(t *testing.T) {
 			t.Parallel()
 
 			var cfg strictConfig
+
 			err := (&yaml3.Backend{}).DecodeStrict(strings.NewReader(tc.input), &cfg)
 			switch {
 			case tc.wantUnknown != nil:
 				require.ErrorIs(t, err, backend.ErrUnknownField)
 				_, ok := errors.AsType[*yaml.TypeError](err)
 				require.True(t, ok, "the yaml.v3 error stays inspectable")
+
 				for _, want := range tc.wantUnknown {
 					require.ErrorContains(t, err, want)
 				}

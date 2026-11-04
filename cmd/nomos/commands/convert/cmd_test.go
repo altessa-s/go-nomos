@@ -31,6 +31,7 @@ func TestIsPathWithinDir(t *testing.T) {
 		if runtime.GOOS == "windows" {
 			t.Skip("path semantics differ on Windows; covered by other cases")
 		}
+
 		dir := filepath.Join(string(filepath.Separator), "tmp", "a")
 		p := filepath.Join(string(filepath.Separator), "tmp", "ab", "x.yaml")
 		require.False(t, isPathWithinDir(dir, p), "expected outside: dir=%q path=%q", dir, p)

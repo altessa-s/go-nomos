@@ -37,9 +37,11 @@ func New(use string, opts ...Option) *cobra.Command {
 	}
 
 	root.configure(cfg.subcommands)
+
 	if cfg.out != nil {
 		root.SetOut(cfg.out)
 	}
+
 	if cfg.err != nil {
 		root.SetErr(cfg.err)
 	}
@@ -72,11 +74,13 @@ func (c *Command) configure(subcommands []*cobra.Command) {
 func Run(ctx context.Context, use string, args []string, opts ...Option) (err error) {
 	cmd := New(use, opts...)
 	cmd.SetArgs(args)
+
 	defer func() {
 		if r := recover(); r != nil {
 			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Panic recovered: %v\nStack trace:\n%s\n", r, debug.Stack())
 			err = fmt.Errorf("panic recovered: %v", r)
 		}
 	}()
+
 	return cmd.ExecuteContext(ctx)
 }

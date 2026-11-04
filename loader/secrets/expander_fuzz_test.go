@@ -47,6 +47,7 @@ func FuzzExpansionIsNotRecursive(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, content string) {
 		var lookups []string
+
 		expander := secrets.New(secrets.ResolverFunc(func(ctx context.Context, ref string) (string, error) {
 			lookups = append(lookups, ref)
 			return mgr.Resolve(ctx, ref)
@@ -61,17 +62,20 @@ func FuzzExpansionIsNotRecursive(f *testing.F) {
 		for _, m := range placeholderRefs.FindAllStringSubmatch(content, -1) {
 			want = append(want, m[1]+":"+m[2])
 		}
+
 		require.Equal(t, want, lookups,
 			"the resolver saw a lookup that no input placeholder asked for:\n%s", out)
 
 		// The resolved value is data, so it survives verbatim — including the
 		// braces that would have made it a placeholder had it been rescanned.
 		injections := 0
+
 		for _, ref := range lookups {
 			if ref == "app:injector" {
 				injections++
 			}
 		}
+
 		require.GreaterOrEqual(t, strings.Count(out, injected), injections,
 			"a resolved value was altered or rescanned:\n%s", out)
 	})
@@ -115,6 +119,7 @@ func FuzzExpandResolvesEveryPlaceholderItRecognizes(f *testing.F) {
 		if !secrets.HasSecrets(content) {
 			require.Equal(t, content, out,
 				"the expander changed a string HasSecrets called clean: %q", content)
+
 			return
 		}
 

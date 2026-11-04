@@ -30,6 +30,7 @@ func (b *Backend) processLine(line string) string {
 	if !ok {
 		return line
 	}
+
 	afterHashTrimmed := strings.TrimLeft(afterHash, " \t")
 
 	if b.isYAMLSyntax(afterHashTrimmed) || afterHash == "" {
@@ -55,6 +56,7 @@ func (b *Backend) quoteYAMLSpecialValues(line string) string {
 	}
 
 	afterColon := trimmed[colonIdx+1:]
+
 	value := strings.TrimLeft(afterColon, " \t")
 	if len(value) == 0 {
 		return line
@@ -82,6 +84,7 @@ func (b *Backend) isYAMLSyntax(content string) bool {
 	if content == "" {
 		return false
 	}
+
 	return b.isYAMLListItem(content) || b.isYAMLKeyValue(content)
 }
 
@@ -96,6 +99,7 @@ func (b *Backend) isYAMLKeyValue(content string) bool {
 	if colonIdx <= 0 {
 		return false
 	}
+
 	return b.isValidYAMLKey(content[:colonIdx])
 }
 
@@ -107,6 +111,7 @@ func (b *Backend) isValidYAMLKey(key string) bool {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -121,6 +126,7 @@ func (b *Backend) IsFullyCommented(data []byte) bool {
 		if trimmed == "" || strings.HasPrefix(trimmed, "# ") {
 			continue // Empty line or regular comment
 		}
+
 		if strings.HasPrefix(trimmed, "#") && strings.Contains(trimmed, ":") {
 			hasCommentedYAML = true
 		} else if strings.Contains(trimmed, ":") {

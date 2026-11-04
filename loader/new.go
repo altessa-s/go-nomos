@@ -15,5 +15,6 @@ func New(b backend.Backend, opts ...Option) *Config {
 	if b == nil {
 		b = &yaml3.Backend{}
 	}
+
 	return &Config{options: newOptions(opts...), backend: b, loadSlot: make(chan struct{}, 1)}
 }

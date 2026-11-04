@@ -21,15 +21,18 @@ func FuzzTemplateSpecialValues(f *testing.F) {
 	f.Add(`quoted"value`)
 	f.Fuzz(func(t *testing.T, value string) {
 		t.Parallel()
+
 		if len(value) > 4096 || strings.ContainsAny(value, "\r\n") || !utf8.ValidString(value) {
 			return
 		}
+
 		original := []byte("#key: *" + value)
 		before := bytes.Clone(original)
 		b := &yaml3.Backend{}
 		out := b.Uncomment(original)
 		require.Equal(t, before, original)
 		require.Equal(t, out, b.Uncomment(original))
+
 		var got map[string]string
 		require.NoError(t, b.Decode(bytes.NewReader(out), &got))
 		require.Equal(t, "*"+value, got["key"])

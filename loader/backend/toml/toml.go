@@ -54,6 +54,7 @@ func (b *Backend) Encode(w io.Writer, value any) (err error) {
 			err = fmt.Errorf("%w: %v", errEncode, r)
 		}
 	}()
+
 	return toml.NewEncoder(w).Encode(value)
 }
 

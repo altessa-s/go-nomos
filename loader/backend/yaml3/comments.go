@@ -14,26 +14,35 @@ func (b *Backend) CommentPaths(data []byte) ([][]string, error) {
 	if err := yaml.Unmarshal(data, &doc); err != nil {
 		return nil, err
 	}
-	var paths [][]string
-	var walk func(*yaml.Node, []string)
+
+	var (
+		paths [][]string
+		walk  func(*yaml.Node, []string)
+	)
+
 	walk = func(n *yaml.Node, prefix []string) {
 		if n.Kind == yaml.DocumentNode && len(n.Content) > 0 {
 			walk(n.Content[0], prefix)
 		}
+
 		if n.Kind != yaml.MappingNode {
 			return
 		}
+
 		for i := 0; i+1 < len(n.Content); i += 2 {
 			path := append(append([]string(nil), prefix...), n.Content[i].Value)
+
 			key, value := n.Content[i], n.Content[i+1]
 			if key.LineComment != "" || key.HeadComment != "" || value.LineComment != "" || value.HeadComment != "" {
 				paths = append(paths, path)
 			}
+
 			if value.Kind == yaml.MappingNode {
 				walk(value, path)
 			}
 		}
 	}
 	walk(&doc, nil)
+
 	return paths, nil
 }

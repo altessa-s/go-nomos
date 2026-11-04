@@ -22,6 +22,7 @@ func TestCheckDocument(t *testing.T) {
 
 	var laughs strings.Builder
 	laughs.WriteString("a: &a [\"lol\",\"lol\",\"lol\",\"lol\",\"lol\",\"lol\",\"lol\",\"lol\",\"lol\"]\n")
+
 	prev := "a"
 	for _, name := range []string{"b", "c", "d", "e", "f", "g", "h", "i"} {
 		fmt.Fprintf(&laughs, "%s: &%s [*%s,*%s,*%s,*%s,*%s,*%s,*%s,*%s,*%s]\n", name, name, prev, prev, prev, prev, prev, prev, prev, prev, prev)
@@ -47,6 +48,7 @@ func TestDecodeRejectsDuplicateKeysLinearly(t *testing.T) {
 	t.Parallel()
 
 	b := &yaml3.Backend{}
+
 	decoders := map[string]func(string) error{
 		"Decode": func(doc string) error {
 			var out map[string]any
@@ -65,6 +67,7 @@ func TestDecodeRejectsDuplicateKeysLinearly(t *testing.T) {
 	for name, decode := range decoders {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+
 			err := decode(duplicateKeys)
 			require.Error(t, err)
 			require.NotContains(t, err.Error(), "hiddenkey")
@@ -85,18 +88,23 @@ func TestDecodeRejectsExcessiveMappingWork(t *testing.T) {
 	for i := range 200_000 {
 		fmt.Fprintf(&doc, "k%d: 0\n", i)
 	}
+
 	var out map[string]any
 	require.Error(t, (&yaml3.Backend{}).Decode(strings.NewReader(doc.String()), &out))
 
 	var aliased strings.Builder
 	aliased.WriteString("base: &b {")
+
 	for i := range 5_000 {
 		fmt.Fprintf(&aliased, "k%d: 0, ", i)
 	}
+
 	aliased.WriteString("}\n")
+
 	for i := range 50 {
 		fmt.Fprintf(&aliased, "a%d: *b\n", i)
 	}
+
 	require.Error(t, (&yaml3.Backend{}).CheckDocument(aliased.String()))
 }
 
@@ -107,8 +115,10 @@ func TestCheckDocument_SaturatesCounts(t *testing.T) {
 
 	var doc strings.Builder
 	doc.WriteString("l0: &l0 [x, x]\n")
+
 	for i := 1; i <= 45; i++ {
 		fmt.Fprintf(&doc, "l%d: &l%d [*l%d, *l%d]\n", i, i, i-1, i-1)
 	}
+
 	require.ErrorContains(t, (&yaml3.Backend{}).CheckDocument(doc.String()), "excessive aliasing")
 }
