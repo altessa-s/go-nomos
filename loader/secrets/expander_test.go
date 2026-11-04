@@ -233,12 +233,6 @@ func TestExpander_Expand_FailClosed_MultipleSecrets(t *testing.T) {
 	require.Error(t, err)
 }
 
-type cycleNode struct {
-	Password string
-	Next     *cycleNode
-	Any      any
-}
-
 // Expand resolves in one pass: a secret's value is inserted literally, even
 // when it, alone or joined with the text after it, looks like a placeholder,
 // and payloads with control characters and dollars survive.
