@@ -11,6 +11,12 @@ import (
 type Option func(o *options)
 
 // WithFailOnError sets the failOnError option.
+//
+// failOnError ([WithFailOnError]) controls whether secret expansion errors
+// cause Expand to return an error (fail-closed) or silently replace the
+// placeholder with an empty string (fail-open). Default is true
+// (fail-closed) to prevent authorization bypass when secrets fail to
+// resolve.
 func WithFailOnError(v bool) Option {
 	return func(o *options) {
 		o.failOnError = v
@@ -18,6 +24,9 @@ func WithFailOnError(v bool) Option {
 }
 
 // WithLogger sets the logger option.
+//
+// logger ([WithLogger]) logs secret retrieval failures. A nil logger is
+// ignored; the default is [slog.Default].
 func WithLogger(v *slog.Logger) Option {
 	return func(o *options) {
 		if v == nil {
