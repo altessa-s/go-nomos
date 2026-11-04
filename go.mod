@@ -7,7 +7,7 @@ toolchain go1.27.3
 require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/MakeNowJust/heredoc v1.0.0
-	github.com/altessa-s/go-atlas-core v0.3.2
+	github.com/altessa-s/go-atlas-core v0.3.3
 	github.com/altessa-s/ozzo-rules v1.17.0
 	github.com/go-ozzo/ozzo-validation/v4 v4.5.0
 	github.com/spf13/cobra v1.10.2
