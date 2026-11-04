@@ -35,15 +35,18 @@ func (c *transactionalConfig) Validate() error {
 	if c.Name == "reject" {
 		return errRejectedLoad
 	}
+
 	return nil
 }
 func TestFailedReloadPreservesPublishedGraph(t *testing.T) {
 	t.Parallel()
+
 	for _, reuse := range []bool{false, true} {
 		name := "new destination"
 		if reuse {
 			name = "same destination"
 		}
+
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			path := filepath.Join(t.TempDir(), "config.yaml")
@@ -52,11 +55,14 @@ func TestFailedReloadPreservesPublishedGraph(t *testing.T) {
 			first := &transactionalConfig{}
 			_, err := l.LoadContext(t.Context(), first)
 			require.NoError(t, err)
+
 			labels, ports, child := first.Labels, first.Ports, first.Child
+
 			next := &transactionalConfig{Labels: labels, Ports: ports, Child: child}
 			if reuse {
 				next = first
 			}
+
 			require.NoError(t, os.WriteFile(path, []byte("name: reject\nlabels: {x: changed, y: added}\nports: [2]\nchild: {value: 2}\n"), 0o600))
 			_, err = l.LoadContext(t.Context(), next)
 			require.ErrorIs(t, err, errRejectedLoad)
@@ -71,18 +77,21 @@ func TestFailedReloadPreservesPublishedGraph(t *testing.T) {
 }
 func TestFailedFirstLoadPublishesNothing(t *testing.T) {
 	t.Parallel()
+
 	l := loader.New(nil, loader.WithSkipEnv())
 	_, err := l.LoadContext(t.Context(), &transactionalConfig{Name: "reject"})
 	require.ErrorIs(t, err, loader.ErrValidation)
 	require.Nil(t, l.Config())
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
+
 	_, err = l.LoadContext(ctx, &transactionalConfig{})
 	require.ErrorIs(t, err, context.Canceled)
 	require.Nil(t, l.Config())
 }
 func TestEmptyDocumentsUseBackendSemantics(t *testing.T) {
 	t.Parallel()
+
 	for _, tc := range []struct {
 		name string
 		b    backend.Backend
@@ -92,12 +101,15 @@ func TestEmptyDocumentsUseBackendSemantics(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
+
 			for _, content := range []string{"", "   \n", "# comment\n"} {
 				path := filepath.Join(t.TempDir(), "config."+tc.ext)
 				require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
+
 				var cfg struct {
 					Port int `default:"42"`
 				}
+
 				_, err := loader.New(tc.b, loader.WithPath(path), loader.WithSkipEnv()).LoadContext(t.Context(), &cfg)
 				require.NoError(t, err)
 				require.Equal(t, 42, cfg.Port)
@@ -114,12 +126,14 @@ func TestSliceReuseIsACapability(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "a.toml"), []byte("items = [{enabled = false, name = 'a'}]\n"), 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "b.toml"), []byte("items = [{name = 'b'}]\n"), 0o600))
+
 	var cfg struct {
 		Items []struct {
 			Enabled bool `default:"true"`
 			Name    string
 		}
 	}
+
 	_, err := loader.New(&renamedTOML{}, loader.WithPath(dir), loader.WithSkipEnv()).LoadContext(t.Context(), &cfg)
 	require.NoError(t, err)
 	require.Len(t, cfg.Items, 1)
@@ -139,6 +153,7 @@ func (c *aliasedTransactionalConfig) Validate() error {
 	if c.Name == "reject" {
 		return errRejectedLoad
 	}
+
 	return nil
 }
 

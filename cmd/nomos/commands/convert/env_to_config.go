@@ -39,17 +39,22 @@ func (conv *EnvToConfigConverter) ConvertContext(ctx context.Context, fromPath, 
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+
 	f, err := files.OpenRegular(fromPath)
 	if err != nil {
 		return err
 	}
+
 	defer func() { _ = f.Close() }()
+
 	data, err := (&conversion.Parser{}).ParseContext(ctx, f, conv.parseComments)
 	if errors.Is(err, conversion.ErrConflictingKey) {
 		return errors.Join(ErrConflictingKey, err)
 	}
+
 	if err != nil {
 		return err
 	}
+
 	return writeConfigFile(ctx, toPath, format, data)
 }

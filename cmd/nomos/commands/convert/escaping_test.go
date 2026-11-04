@@ -16,10 +16,13 @@ import (
 
 func TestUncommentYAMLPreservesBackslashes(t *testing.T) {
 	t.Parallel()
+
 	for _, value := range []string{`*\new\token`, `@C:\keys\private`, `!\"quoted"`} {
 		t.Run(value, func(t *testing.T) {
 			t.Parallel()
+
 			data := convert.NewConfigToEnvConverter().UncommentYAML([]byte("# value: " + value))
+
 			var got map[string]string
 			require.NoError(t, (&yaml3.Backend{}).Decode(bytes.NewReader(data), &got))
 			require.Equal(t, value, got["value"])

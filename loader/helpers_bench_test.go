@@ -18,6 +18,7 @@ func BenchmarkUnwrapEnvValue_Plain(b *testing.B) {
 
 func BenchmarkUnwrapEnvValue_Mixed(b *testing.B) {
 	b.Setenv("BENCH_VAR", "expanded")
+
 	for b.Loop() {
 		_ = unwrapEnvValue("prefix-$BENCH_VAR-suffix")
 	}
@@ -43,6 +44,7 @@ func BenchmarkUnwrapEnvValueStrict_Plain(b *testing.B) {
 
 func BenchmarkUnwrapEnvValueStrict_Mixed(b *testing.B) {
 	b.Setenv("BENCH_VAR", "expanded")
+
 	for b.Loop() {
 		_, _ = unwrapEnvValueStrict("prefix-$BENCH_VAR-suffix")
 	}

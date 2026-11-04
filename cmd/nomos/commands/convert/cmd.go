@@ -203,6 +203,7 @@ func (c *Command) run(cmd *cobra.Command, args []string) error {
 	if err := c.validateFormat(fromFormat, "from"); err != nil {
 		return err
 	}
+
 	if err := c.validateFormat(toFormat, "to"); err != nil {
 		return err
 	}
@@ -212,6 +213,7 @@ func (c *Command) run(cmd *cobra.Command, args []string) error {
 	if isDir {
 		sourceDesc = c.fromPath + " (directory)"
 	}
+
 	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Converting %s (%s) -> %s (%s)...\n",
 		sourceDesc, fromFormat, c.toPath, toFormat)
 
@@ -226,6 +228,7 @@ func (c *Command) validatePaths() (bool, error) {
 	if os.IsNotExist(err) {
 		return false, fmt.Errorf("source path does not exist: %s", c.fromPath)
 	}
+
 	if err != nil {
 		return false, coreerrs.WrapOperation(err, "stat source path")
 	}
@@ -298,12 +301,15 @@ func (c *Command) performConversion(ctx context.Context, fromFormat, toFormat st
 	}
 
 	// If source is a directory, load and merge all files first
-	var mergedData map[string]any
-	var err error
+	var (
+		mergedData map[string]any
+		err        error
+	)
 
 	if isDir {
 		// For markdown conversion, always uncomment YAML files
 		uncommentYAML := toFormat == formatMD
+
 		mergedData, err = c.loadAndMergeDirectory(ctx, fromFormat, uncommentYAML)
 		if err != nil {
 			return err
@@ -319,6 +325,7 @@ func (c *Command) performConversion(ctx context.Context, fromFormat, toFormat st
 		// .env to config format (YAML/TOML)
 		converter := NewEnvToConfigConverter()
 		converter.SetParseComments(c.parseComments)
+
 		return converter.ConvertContext(ctx, c.fromPath, c.toPath, toFormat)
 	case fromConfig && isConfigFormat(toFormat):
 		// Config format to config format (YAML <-> TOML)
@@ -326,6 +333,7 @@ func (c *Command) performConversion(ctx context.Context, fromFormat, toFormat st
 		if isDir {
 			return converter.ConvertDataContext(ctx, mergedData, c.toPath, toFormat)
 		}
+
 		return converter.ConvertContext(ctx, c.fromPath, c.toPath, fromFormat, toFormat)
 	case fromConfig && toFormat == formatMD:
 		// Config format (YAML/TOML) to Markdown
@@ -333,6 +341,7 @@ func (c *Command) performConversion(ctx context.Context, fromFormat, toFormat st
 		if isDir {
 			return converter.ConvertDataContext(ctx, mergedData, c.toPath)
 		}
+
 		return converter.ConvertContext(ctx, c.fromPath, c.toPath, fromFormat)
 	}
 
@@ -350,6 +359,7 @@ func isConfigFormat(format string) bool {
 func (c *Command) configToEnv(ctx context.Context, fromFormat string, isDir bool, mergedData map[string]any) error {
 	converter := NewConfigToEnvConverter()
 	converter.SetParseComments(c.parseComments)
+
 	if !isDir {
 		return converter.ConvertContext(ctx, c.fromPath, c.toPath, fromFormat)
 	}
@@ -359,6 +369,7 @@ func (c *Command) configToEnv(ctx context.Context, fromFormat string, isDir bool
 		commentedKeys = make(map[string]bool)
 		markAllAsCommented(mergedData, "", commentedKeys)
 	}
+
 	return converter.ConvertDataWithCommentsContext(ctx, mergedData, commentedKeys, c.toPath)
 }
 
@@ -370,18 +381,22 @@ func (c *Command) loadAndMergeDirectory(ctx context.Context, format string, unco
 	if err != nil {
 		return nil, err
 	}
+
 	return conversion.Merge(ctx, names, func(ctx context.Context, name string) (map[string]any, error) {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
+
 		filePath := filepath.Join(c.fromPath, name)
 		if !isPathWithinDir(c.fromPath, filePath) {
 			return nil, fmt.Errorf("invalid path: %s", name)
 		}
+
 		data, err := c.loadConfigFile(filePath, format, uncommentYAML)
 		if err != nil {
 			return nil, fmt.Errorf("load %s: %w", name, err)
 		}
+
 		return data, ctx.Err()
 	})
 }
@@ -390,6 +405,7 @@ func (c *Command) loadAndMergeDirectory(ctx context.Context, format string, unco
 // whose extension matches the given format.
 func (c *Command) collectConfigFileNames(format string) ([]string, error) {
 	var names []string
+
 	for entry, err := range files.Walk(c.fromPath,
 		files.WithFileTypes(files.FileTypeRegular),
 		files.WithExtensions(extensionsForFormat(format)...),
@@ -397,8 +413,10 @@ func (c *Command) collectConfigFileNames(format string) ([]string, error) {
 		if err != nil {
 			return nil, coreerrs.WrapOperation(err, "read directory")
 		}
+
 		names = append(names, entry.Name())
 	}
+
 	return names, nil
 }
 
@@ -414,6 +432,7 @@ func extensionsForFormat(format string) []string {
 	case formatMD:
 		return []string{extensionMD}
 	}
+
 	return nil
 }
 
@@ -428,9 +447,11 @@ func isPathWithinDir(dir, path string) bool {
 	if err != nil {
 		return false
 	}
+
 	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 		return false
 	}
+
 	return true
 }
 
@@ -447,9 +468,11 @@ func (c *Command) loadConfigFile(path, format string, uncommentYAML bool) (map[s
 	if format == formatYAML && (c.parseComments || uncommentYAML) {
 		data = (&yaml3.Backend{}).Uncomment(data)
 	}
+
 	if err := decodeConfig(format, data, &configData); err != nil {
 		return nil, err
 	}
+
 	if format == formatYAML && len(configData) == 0 && (&yaml3.Backend{}).IsFullyCommented(data) {
 		if err := decodeConfig(format, (&yaml3.Backend{}).Uncomment(data), &configData); err != nil {
 			return nil, err

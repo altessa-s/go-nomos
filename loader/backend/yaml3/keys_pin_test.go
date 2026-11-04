@@ -28,7 +28,7 @@ type pinCycle struct {
 }
 
 type pinKeys struct {
-	unexported int
+	unexported int //nolint:unused // Unexported fields must not become keys.
 	Skipped    int `yaml:"-"`
 	Plain      int // lowercased
 	Bare       int
@@ -43,6 +43,7 @@ func TestBuildStructKeys_Pin(t *testing.T) {
 
 	t.Run("binds keys like yaml.v3", func(t *testing.T) {
 		t.Parallel()
+
 		sk, err := buildStructKeys(reflect.TypeFor[pinKeys](), map[reflect.Type]bool{})
 		require.NoError(t, err)
 		require.Equal(t, map[string][]int{
@@ -89,6 +90,7 @@ func TestBuildStructKeys_Pin(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
+
 			_, err := buildStructKeys(tc.typ, map[reflect.Type]bool{})
 			require.ErrorIs(t, err, tc.err)
 		})
@@ -100,6 +102,7 @@ func TestRewriteScalars_Pin(t *testing.T) {
 
 	t.Run("a malformed document fails", func(t *testing.T) {
 		t.Parallel()
+
 		_, err := (&Backend{}).RewriteScalars("a: [1\n", func(backend.Scalar) (string, bool, bool, error) {
 			return "", false, false, nil
 		})
@@ -108,6 +111,7 @@ func TestRewriteScalars_Pin(t *testing.T) {
 
 	t.Run("an invalid UTF-8 literal is stored as binary", func(t *testing.T) {
 		t.Parallel()
+
 		out, err := (&Backend{}).RewriteScalars("a: x\n", func(backend.Scalar) (string, bool, bool, error) {
 			return "\xff\xfe", true, true, nil
 		})
@@ -118,6 +122,7 @@ func TestRewriteScalars_Pin(t *testing.T) {
 
 func TestAliasCounter_NilNode(t *testing.T) {
 	t.Parallel()
+
 	c := &aliasCounter{sizes: map[*yaml.Node]int64{}, inProgress: map[*yaml.Node]bool{}}
 	s, err := c.size(nil)
 	require.NoError(t, err)

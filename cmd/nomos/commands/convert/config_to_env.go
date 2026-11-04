@@ -65,8 +65,10 @@ func (conv *ConfigToEnvConverter) ConvertContext(ctx context.Context, fromPath, 
 	}
 
 	// Parse based on format and extract comments if needed
-	var configData map[string]any
-	var commentedKeys map[string]bool
+	var (
+		configData    map[string]any
+		commentedKeys map[string]bool
+	)
 
 	if conv.parseComments && format == formatYAML {
 		configData, commentedKeys, err = conv.parseYAMLWithComments(data)
@@ -100,7 +102,9 @@ func (conv *ConfigToEnvConverter) ConvertDataWithCommentsContext(ctx context.Con
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+
 	out := (&conversion.Env{}).Render(data, comments, conv.parseComments)
+
 	return writeOutput(ctx, toPath, out)
 }
 
@@ -112,24 +116,30 @@ func (conv *ConfigToEnvConverter) FlattenConfig(data map[string]any, prefix stri
 func (conv *ConfigToEnvConverter) parseYAMLWithComments(data []byte) (map[string]any, map[string]bool, error) {
 	b := &yaml3.Backend{}
 	content := b.Uncomment(data)
+
 	var tree map[string]any
 	if err := b.Decode(bytes.NewReader(content), &tree); err != nil {
 		return nil, nil, err
 	}
+
 	comments := make(map[string]bool)
 	if b.IsFullyCommented(data) {
 		markAllAsCommented(tree, "", comments)
 		return tree, comments, nil
 	}
+
 	paths, err := b.CommentPaths(content)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	for _, path := range paths {
 		for i := range path {
 			path[i] = corestrings.ToScreamingSnakeCase(path[i])
 		}
+
 		comments[strings.Join(path, "__")] = true
 	}
+
 	return tree, comments, nil
 }

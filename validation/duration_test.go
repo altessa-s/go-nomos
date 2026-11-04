@@ -33,13 +33,16 @@ func TestDurationRules(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
+
 			check := func(accept bool, rule validation.Rule) {
 				t.Helper()
+
 				err := validation.Validate(tc.value, rule)
 				if accept {
 					require.NoError(t, err)
 					return
 				}
+
 				require.Error(t, err)
 			}
 			check(tc.positive, validationconfig.PositiveDuration())

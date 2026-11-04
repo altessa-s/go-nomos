@@ -28,6 +28,7 @@ func (conv *Env) Render(configData map[string]any, commentedKeys map[string]bool
 	for key := range envVars {
 		keys = append(keys, key)
 	}
+
 	slices.Sort(keys)
 
 	// Group keys by top-level section
@@ -35,7 +36,9 @@ func (conv *Env) Render(configData map[string]any, commentedKeys map[string]bool
 
 	// Write .env file with sections
 	var builder strings.Builder
+
 	isFirst := true
+
 	for _, sectionName := range getSortedSectionNames(sections) {
 		sectionKeys := sections[sectionName]
 
@@ -43,6 +46,7 @@ func (conv *Env) Render(configData map[string]any, commentedKeys map[string]bool
 		if !isFirst {
 			builder.WriteString("\n")
 		}
+
 		isFirst = false
 
 		// Add section header
@@ -86,7 +90,9 @@ func getSortedSectionNames(sections map[string][]string) []string {
 	for name := range sections {
 		names = append(names, name)
 	}
+
 	slices.Sort(names)
+
 	return names
 }
 
@@ -101,6 +107,7 @@ func formatSectionName(s string) string {
 			parts[i] = strings.ToUpper(string(part[0])) + strings.ToLower(part[1:])
 		}
 	}
+
 	return strings.Join(parts, " ")
 }
 
@@ -123,6 +130,7 @@ func (conv *Env) FlattenConfig(data map[string]any, prefix string) map[string]st
 	// Estimate size and create map with capacity
 	result := make(map[string]string, estimateSize(data))
 	conv.flattenConfigInto(result, data, prefix, false)
+
 	return result
 }
 
@@ -183,10 +191,12 @@ func (conv *Env) formatArrayValue(v reflect.Value, encode bool) string {
 		if i > 0 {
 			builder.WriteByte(',')
 		}
+
 		element := v.Index(i)
 		for element.Kind() == reflect.Interface && !element.IsNil() {
 			element = element.Elem()
 		}
+
 		switch {
 		case encode && element.Kind() == reflect.String:
 			builder.WriteString(encodeEnvString(element.String()))
@@ -198,6 +208,7 @@ func (conv *Env) formatArrayValue(v reflect.Value, encode bool) string {
 	}
 
 	builder.WriteByte(']')
+
 	return builder.String()
 }
 
@@ -212,5 +223,6 @@ func encodeEnvString(value string) string {
 		strings.ContainsAny(value, "\\\"'\n\r\t#$`,[]") || strings.ContainsFunc(value, func(r rune) bool { return r < ' ' }) {
 		return strconv.Quote(value)
 	}
+
 	return value
 }

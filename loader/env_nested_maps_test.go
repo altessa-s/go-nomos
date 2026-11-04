@@ -39,8 +39,10 @@ type nestedMapsConfig struct {
 
 func loadNestedMaps(t testing.TB, cfg *nestedMapsConfig, opts ...loader.Option) *nestedMapsConfig {
 	t.Helper()
+
 	_, err := loader.New(nil, append([]loader.Option{loader.WithEnvPrefix("NMAP")}, opts...)...).Load(cfg)
 	require.NoError(t, err)
+
 	return cfg
 }
 
@@ -158,6 +160,7 @@ func TestLoad_EnvNonStringMapKeys(t *testing.T) {
 		t.Setenv("NMAP_ITEMS__0__COUNTS__team__1", "v")
 
 		cfg := &nestedMapsItems{}
+
 		require.NotPanics(t, func() {
 			_, err := loader.New(nil, loader.WithEnvPrefix("NMAP")).Load(cfg)
 			require.NoError(t, err)

@@ -21,6 +21,7 @@ import (
 
 func TestConvertersRejectFIFO(t *testing.T) {
 	t.Parallel()
+
 	for _, tc := range []struct {
 		name    string
 		convert func(context.Context, string, string) error

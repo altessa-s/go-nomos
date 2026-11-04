@@ -58,6 +58,7 @@ func TestPrettyError(t *testing.T) {
 
 	t.Run("nested validation errors", func(t *testing.T) {
 		t.Parallel()
+
 		err := validation.Errors{
 			"server": validation.Errors{"port": errors.New("invalid port")},
 			"host":   errors.New("cannot be blank"),
@@ -105,11 +106,13 @@ func TestValidateStorage(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
+
 			err := validateStorageCfg(&tc.cfg)
 			if tc.wantErr == "" {
 				require.NoError(t, err)
 				return
 			}
+
 			verrs, ok := errors.AsType[validation.Errors](err)
 			require.True(t, ok, "want validation.Errors, got %v", err)
 			require.Contains(t, verrs, tc.wantErr)
@@ -129,9 +132,11 @@ func TestValidateStructIfEnabled(t *testing.T) {
 
 func TestValidateStorageNilSelector(t *testing.T) {
 	t.Parallel()
+
 	for _, cases := range [][]validationconfig.StorageCase[string]{nil, {{When: "redis"}}} {
 		t.Run(fmt.Sprint(len(cases)), func(t *testing.T) {
 			t.Parallel()
+
 			err := validationconfig.ValidateStorage(&storageCfg{}, nil, []string{"redis"}, cases)
 			require.ErrorIs(t, err, validation.ErrFieldPointer(0))
 		})

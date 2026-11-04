@@ -19,11 +19,13 @@ func TestMergeOrderAndErrors(t *testing.T) {
 	data, err := conversion.Merge(t.Context(), []string{"b", "a"}, func(_ context.Context, n string) (map[string]any, error) { return map[string]any{"name": n}, nil })
 	require.NoError(t, err)
 	require.Equal(t, "b", data["name"])
+
 	sentinel := errors.New("read failed")
 	_, err = conversion.Merge(t.Context(), []string{"a"}, func(context.Context, string) (map[string]any, error) { return nil, sentinel })
 	require.ErrorIs(t, err, sentinel)
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
+
 	_, err = conversion.Merge(ctx, []string{"a"}, func(context.Context, string) (map[string]any, error) {
 		t.Error("read after cancellation")
 		return nil, nil
@@ -35,6 +37,7 @@ func TestMergeOrderAndErrors(t *testing.T) {
 // into a copy of an earlier file's nested map.
 func TestMergeLeavesReaderMapsIntact(t *testing.T) {
 	t.Parallel()
+
 	first := map[string]any{"db": map[string]any{"host": "a"}}
 	files := map[string]map[string]any{
 		"a": first,

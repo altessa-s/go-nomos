@@ -18,6 +18,7 @@ func TestAllowedAliasRatio(t *testing.T) {
 	t.Parallel()
 
 	mid := int64(aliasRatioRangeLow+aliasRatioRangeHigh) / 2
+
 	tests := []struct {
 		name    string
 		decodes int64

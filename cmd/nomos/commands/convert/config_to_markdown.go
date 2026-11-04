@@ -51,6 +51,7 @@ func (conv *ConfigToMarkdownConverter) ConvertContext(ctx context.Context, fromP
 	if format == formatYAML {
 		data = NewConfigToEnvConverter().UncommentYAML(data)
 	}
+
 	if err := decodeConfig(format, data, &configData); err != nil {
 		return err
 	}
@@ -74,5 +75,6 @@ func (conv *ConfigToMarkdownConverter) ConvertDataContext(ctx context.Context, d
 	if err != nil {
 		return err
 	}
+
 	return writeOutput(ctx, toPath, out)
 }

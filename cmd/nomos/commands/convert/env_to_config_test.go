@@ -21,6 +21,7 @@ func TestEnvToConfig_Convert(t *testing.T) {
 	dir := t.TempDir()
 	envPath := filepath.Join(dir, ".env")
 	outPath := filepath.Join(dir, "config.yaml")
+
 	require.NoError(t, os.WriteFile(envPath, []byte("SERVERS__0__HOST=localhost\nPORTS__0=8080\n"), 0o600))
 
 	require.NoError(t, NewEnvToConfigConverter().Convert(envPath, outPath, "yaml"))

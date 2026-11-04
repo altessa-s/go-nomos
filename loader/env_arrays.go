@@ -32,6 +32,7 @@ func (cf *loadState) loadArrayEnvs(ctx context.Context, envs map[string]string, 
 	// Sort by depth (fewer delimiters = shallower = process first), then by
 	// name, so the order does not depend on map iteration.
 	delimiter := cf.options.envSectionDelimiter
+
 	slices.SortFunc(arrayPaths, func(a, b string) int {
 		return cmp.Or(cmp.Compare(strings.Count(a, delimiter), strings.Count(b, delimiter)), strings.Compare(a, b))
 	})
@@ -118,6 +119,7 @@ func (cf *loadState) extractArrayFields(parts []string, positions []int, envValu
 		if result[arrayField] == nil {
 			result[arrayField] = make(map[string]string)
 		}
+
 		result[arrayField][elementPath] = envValue
 	}
 }
@@ -144,6 +146,7 @@ func getCachedPrefix(parts []string, position int, delimiter string, cache map[i
 
 	prefix := strings.Join(parts[0:position], delimiter)
 	cache[position] = prefix
+
 	return prefix
 }
 
@@ -155,6 +158,7 @@ func getCachedSuffix(parts []string, position int, delimiter string, cache map[i
 
 	suffix := strings.Join(parts[position:], delimiter)
 	cache[position] = suffix
+
 	return suffix
 }
 
@@ -188,6 +192,7 @@ func (cf *loadState) setArrayElements(ctx context.Context, fieldPath string, ele
 				arrayField = fld
 				return false // Stop searching
 			}
+
 			return true
 		})
 	}
@@ -206,6 +211,7 @@ func (cf *loadState) setArrayElements(ctx context.Context, fieldPath string, ele
 		if derefType(arrayField.field.Type).Kind() != reflect.Slice {
 			return nil
 		}
+
 		allocated := *arrayField
 		allocated.value = fieldByIndexAlloc(reflect.ValueOf(cf.conf).Elem(), arrayField.index)
 		arrayField = &allocated
@@ -222,6 +228,7 @@ func (cf *loadState) setArrayElements(ctx context.Context, fieldPath string, ele
 		if v.IsNil() {
 			v.Set(reflect.New(v.Type().Elem()))
 		}
+
 		deref := *arrayField
 		deref.value = v.Elem()
 		arrayField = &deref
@@ -275,12 +282,14 @@ func (cf *loadState) setPrimitiveSliceElements(ctx context.Context, arrayField *
 			if rest, deeper := cf.levelBelowLeafElement(arrayField, elementPath); deeper && cf.options.strict {
 				return fmt.Errorf("%w: %s in path %s", ErrFieldNotFound, rest, slicePath+cf.options.envSectionDelimiter+elementPath)
 			}
+
 			continue
 		}
 
 		if err := cf.checkEnvIndex(arrayField.fullName, index, arrayField.value.Len()); err != nil {
 			return err
 		}
+
 		if index > maxIndex {
 			maxIndex = index
 		}
@@ -317,10 +326,13 @@ func (cf *loadState) levelBelowLeafElement(arrayField *field, elementPath string
 	if !found || rest == "" || !isLeafType(arrayField.value.Type().Elem()) {
 		return "", false
 	}
+
 	if _, err := strconv.Atoi(index); err != nil {
 		return "", false
 	}
+
 	level, _, _ := strings.Cut(rest, cf.options.envSectionDelimiter)
+
 	return level, true
 }
 
@@ -341,6 +353,7 @@ func (cf *loadState) setStructSliceElements(ctx context.Context, arrayField *fie
 		if err != nil {
 			continue
 		}
+
 		if err := cf.checkEnvIndex(arrayField.fullName, index, arrayField.value.Len()); err != nil {
 			return err
 		}
@@ -354,6 +367,7 @@ func (cf *loadState) setStructSliceElements(ctx context.Context, arrayField *fie
 		if indexedElements[index] == nil {
 			indexedElements[index] = make(map[string]string)
 		}
+
 		indexedElements[index][fieldPath] = value
 	}
 
@@ -371,6 +385,7 @@ func (cf *loadState) setStructSliceElements(ctx context.Context, arrayField *fie
 	for index, fieldValues := range indexedElements {
 		elementValue := arrayField.value.Index(index)
 		elementSteps := withStep(steps, pathStep{kind: elemStep, index: index})
+
 		elementName := slicePath + delimiter + strconv.Itoa(index)
 		if err := cf.setStructFields(ctx, elementValue, elementName, fieldValues, elementSteps); err != nil {
 			return err
@@ -388,6 +403,7 @@ func (cf *loadState) checkEnvIndex(name string, index, n int) error {
 	if index >= 0 && (index < n || index < cf.options.maxEnvSliceLen) {
 		return nil
 	}
+
 	return fmt.Errorf("%w: index %d of %s (length %d, limit %d)", ErrEnvIndexOutOfRange, index, name, n, cf.options.maxEnvSliceLen)
 }
 
@@ -418,6 +434,7 @@ func (cf *loadState) setStructFields(ctx context.Context, structValue reflect.Va
 		if structValue.IsNil() {
 			structValue.Set(reflect.New(structValue.Type().Elem()))
 		}
+
 		structValue = structValue.Elem()
 	}
 
@@ -465,5 +482,6 @@ func ensureSliceSizeForValue(sliceValue reflect.Value, minSize int) error {
 	}
 
 	sliceValue.Set(newSlice)
+
 	return nil
 }

@@ -32,6 +32,7 @@ func formatCodec(format string) (codec, error) {
 	case formatTOML:
 		return &toml.Backend{}, nil
 	}
+
 	return nil, fmt.Errorf("unsupported format: %s", format)
 }
 func decodeConfig(format string, data []byte, out any) error {
@@ -39,9 +40,11 @@ func decodeConfig(format string, data []byte, out any) error {
 	if err != nil {
 		return err
 	}
+
 	if p, ok := c.(backend.DocumentPreparer); ok {
 		data = []byte(p.PrepareDocument(string(data)))
 	}
+
 	return c.Decode(bytes.NewReader(data), out)
 }
 func marshalConfig(format string, data any) ([]byte, error) {
@@ -49,10 +52,12 @@ func marshalConfig(format string, data any) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	var b bytes.Buffer
 	if err := c.Encode(&b, data); err != nil {
 		return nil, err
 	}
+
 	return b.Bytes(), nil
 }
 
@@ -62,13 +67,16 @@ func writeConfigFile(ctx context.Context, toPath string, format string, data any
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+
 	out, err := marshalConfig(format, data)
 	if err != nil {
 		return err
 	}
+
 	if err := writeOutput(ctx, toPath, out); err != nil {
 		return coreerrs.Wrapf(err, "failed to write config file %s", toPath)
 	}
+
 	return nil
 }
 
@@ -78,11 +86,13 @@ func writeOutput(ctx context.Context, path string, data []byte) error {
 	}
 	// Reject non-regular destinations rather than replacing symlinks or devices.
 	mode := os.FileMode(filePermission)
+
 	info, err := os.Lstat(path)
 	if err == nil {
 		if !info.Mode().IsRegular() {
 			return fmt.Errorf("output must be a regular file: %w", os.ErrInvalid)
 		}
+
 		mode = info.Mode().Perm()
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return err
@@ -93,20 +103,26 @@ func writeOutput(ctx context.Context, path string, data []byte) error {
 		return err
 	}
 	defer func() { _ = temporary.Close(); _ = os.Remove(temporary.Name()) }()
+
 	if _, err := temporary.Write(data); err != nil {
 		return err
 	}
+
 	if err := temporary.Chmod(mode); err != nil {
 		return err
 	}
+
 	if err := temporary.Sync(); err != nil {
 		return err
 	}
+
 	if err := temporary.Close(); err != nil {
 		return err
 	}
+
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+
 	return os.Rename(temporary.Name(), path)
 }

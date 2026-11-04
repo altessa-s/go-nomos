@@ -32,10 +32,12 @@ var (
 // without a tag name flattened.
 func (b *Backend) DecodeKeys(reader io.Reader) (backend.KeyNode, error) {
 	var root toml.Primitive
+
 	md, err := toml.NewDecoder(reader).Decode(&root)
 	if err != nil {
 		return nil, err
 	}
+
 	return &keyNode{doc: &document{md: md}, value: root}, nil
 }
 
@@ -51,6 +53,7 @@ type document struct {
 func (d *document) decode(value toml.Primitive, out any) bool {
 	d.mu.Lock()
 	defer d.mu.Unlock()
+
 	return d.md.PrimitiveDecode(value, out) == nil
 }
 
@@ -69,11 +72,14 @@ func (k *keyNode) Fields(t reflect.Type) (map[int]backend.KeyNode, bool) {
 	if customDecoded(t) {
 		return nil, false
 	}
+
 	sh := shadowOf(t)
+
 	v := reflect.New(sh.typ)
 	if !k.doc.decode(k.value, v.Interface()) {
 		return nil, false
 	}
+
 	return sh.collect(v.Elem(), k.doc), true
 }
 
@@ -82,6 +88,7 @@ func (k *keyNode) Entries(t reflect.Type) (map[any]backend.KeyNode, bool) {
 	if customDecoded(t) {
 		return nil, false
 	}
+
 	m := reflect.New(reflect.MapOf(t.Key(), primitiveType))
 	if !k.doc.decode(k.value, m.Interface()) {
 		return nil, false
@@ -92,6 +99,7 @@ func (k *keyNode) Entries(t reflect.Type) (map[any]backend.KeyNode, bool) {
 		p, _ := reflect.TypeAssert[toml.Primitive](it.Value())
 		out[it.Key().Interface()] = &keyNode{doc: k.doc, value: p}
 	}
+
 	return out, true
 }
 
@@ -100,6 +108,7 @@ func (k *keyNode) Elems(t reflect.Type) ([]backend.KeyNode, bool) {
 	if customDecoded(t) {
 		return nil, false
 	}
+
 	var s []toml.Primitive
 	if !k.doc.decode(k.value, &s) {
 		return nil, false
@@ -109,6 +118,7 @@ func (k *keyNode) Elems(t reflect.Type) ([]backend.KeyNode, bool) {
 	for i, p := range s {
 		out[i] = &keyNode{doc: k.doc, value: p}
 	}
+
 	return out, true
 }
 
@@ -116,6 +126,7 @@ func (k *keyNode) Elems(t reflect.Type) ([]backend.KeyNode, bool) {
 // unmarshaler, so their keys bind to nothing the loader can see.
 func customDecoded(t reflect.Type) bool {
 	pt := reflect.PointerTo(t)
+
 	return t.Implements(unmarshalerType) || t.Implements(textUnmarshalerType) ||
 		pt.Implements(unmarshalerType) || pt.Implements(textUnmarshalerType)
 }
@@ -144,11 +155,13 @@ func (s *shadow) collect(v reflect.Value, doc *document) map[int]backend.KeyNode
 			out[f.index] = &fieldsNode{fields: f.embedded.collect(fv, doc)}
 			continue
 		}
+
 		if !fv.IsZero() {
 			p, _ := reflect.TypeAssert[toml.Primitive](fv)
 			out[f.index] = &keyNode{doc: doc, value: p}
 		}
 	}
+
 	return out
 }
 
@@ -161,8 +174,10 @@ func shadowOf(t reflect.Type) *shadow {
 		sh, _ := s.(*shadow)
 		return sh
 	}
+
 	sh := buildShadow(t, map[reflect.Type]bool{})
 	shadowCache.Store(t, sh)
+
 	return sh
 }
 
@@ -176,6 +191,7 @@ func buildShadow(t reflect.Type, visiting map[reflect.Type]bool) *shadow {
 		sh, _ := s.(*shadow)
 		return sh
 	}
+
 	visiting[t] = true
 	defer delete(visiting, t)
 
@@ -190,6 +206,7 @@ func buildShadow(t reflect.Type, visiting map[reflect.Type]bool) *shadow {
 	// their fields are alike.
 	sh := &shadow{}
 	sfs := make([]reflect.StructField, 0, t.NumField()+1)
+
 	sfs = append(sfs, reflect.StructField{
 		Name: uniqueName("ShadowOf_"+strconv.Itoa(typeID(t)), names),
 		Type: reflect.TypeFor[struct{}](),
@@ -197,20 +214,24 @@ func buildShadow(t reflect.Type, visiting map[reflect.Type]bool) *shadow {
 	})
 	for i := range t.NumField() {
 		sf := t.Field(i)
+
 		tag := sf.Tag.Get("toml")
 		if tag == "-" {
 			continue
 		}
+
 		name, _, _ := strings.Cut(tag, ",")
 
 		ft := sf.Type
 		if ft.Name() == "" && ft.Kind() == reflect.Pointer {
 			ft = ft.Elem()
 		}
+
 		if name == "" && sf.Anonymous && ft.Kind() == reflect.Struct {
 			if visiting[ft] {
 				continue // the decoder explores each embedded type once
 			}
+
 			inner := buildShadow(ft, visiting)
 			sfs = append(sfs, reflect.StructField{
 				Name:      embeddedName(sf, names),
@@ -218,8 +239,10 @@ func buildShadow(t reflect.Type, visiting map[reflect.Type]bool) *shadow {
 				Anonymous: true,
 			})
 			sh.fields = append(sh.fields, shadowField{index: i, shadow: len(sfs) - 1, embedded: inner})
+
 			continue
 		}
+
 		if !sf.IsExported() {
 			continue // the decoder cannot write unexported fields
 		}
@@ -228,10 +251,13 @@ func buildShadow(t reflect.Type, visiting map[reflect.Type]bool) *shadow {
 		if tag != "" {
 			f.Tag = reflect.StructTag(`toml:` + strconv.Quote(tag))
 		}
+
 		sfs = append(sfs, f)
 		sh.fields = append(sh.fields, shadowField{index: i, shadow: len(sfs) - 1})
 	}
+
 	sh.typ = reflect.StructOf(sfs)
+
 	return sh
 }
 
@@ -242,6 +268,7 @@ func embeddedName(sf reflect.StructField, names map[string]bool) string {
 	if sf.IsExported() {
 		return sf.Name
 	}
+
 	return uniqueName("Embedded_"+sf.Name, names)
 }
 
@@ -251,7 +278,9 @@ func uniqueName(name string, names map[string]bool) string {
 	for names[name] {
 		name += "_"
 	}
+
 	names[name] = true
+
 	return name
 }
 
@@ -266,8 +295,10 @@ func typeID(t reflect.Type) int {
 		n, _ := id.(int)
 		return n
 	}
+
 	id, _ := typeIDs.LoadOrStore(t, int(typeIDNext.Add(1)))
 	n, _ := id.(int)
+
 	return n
 }
 

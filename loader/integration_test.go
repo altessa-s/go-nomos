@@ -69,6 +69,7 @@ func (c *itConfig) Validate() error {
 	if c.Server.Port == 0 {
 		return errITInvalid
 	}
+
 	return nil
 }
 
@@ -81,6 +82,7 @@ func (c *itConfig) Normalize() {
 // dir.
 func writeTree(t testing.TB, dir string, files map[string]string) {
 	t.Helper()
+
 	for name, content := range files {
 		path := filepath.Join(dir, filepath.FromSlash(name))
 		require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o700))
@@ -91,12 +93,15 @@ func writeTree(t testing.TB, dir string, files map[string]string) {
 // itResolver resolves the integration secrets and fails for any other.
 func itResolver(t testing.TB) loadersecrets.Resolver {
 	t.Helper()
+
 	values := map[string]string{"db:password": "s3cr3t-db", "app:api-key": "s3cr3t-key"}
+
 	return loadersecrets.ResolverFunc(func(_ context.Context, ref string) (string, error) {
 		v, ok := values[ref]
 		if !ok {
 			return "", errors.New("unknown secret")
 		}
+
 		return v, nil
 	})
 }
@@ -161,6 +166,7 @@ func TestIntegration_LoadDirectory(t *testing.T) {
 			for k, v := range sc.env {
 				t.Setenv(k, v)
 			}
+
 			dir := t.TempDir()
 			writeTree(t, dir, sc.files)
 
@@ -294,6 +300,7 @@ func TestIntegration_RootConfinement(t *testing.T) {
 		dir := t.TempDir()
 		writeTree(t, dir, map[string]string{"parts/app.yaml": "server:\n  port: 7\n"})
 		require.NoError(t, os.Symlink(filepath.Join(dir, "parts", "app.yaml"), filepath.Join(dir, "linked.yaml")))
+
 		cfg := &itConfig{}
 		_, err := loader.New(nil, loader.WithPath(dir), loader.WithSkipEnv()).Load(cfg)
 		require.NoError(t, err)
@@ -351,6 +358,7 @@ func TestIntegration_Reload(t *testing.T) {
 			for name := range sc.first {
 				require.NoError(t, os.Remove(filepath.Join(dir, name)))
 			}
+
 			writeTree(t, dir, sc.second)
 			second, err := l.Load(&itConfig{})
 			require.NoError(t, err)
@@ -359,6 +367,7 @@ func TestIntegration_Reload(t *testing.T) {
 			require.Same(t, second, l.Config())
 
 			writeTree(t, dir, map[string]string{sc.broken: "server = [ :\n"})
+
 			_, err = l.Load(&itConfig{})
 			require.ErrorIs(t, err, loader.ErrDecode)
 			require.Same(t, second, l.Config(), "a failed reload keeps the published value")

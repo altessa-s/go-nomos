@@ -28,8 +28,10 @@ func (cf *loadState) applyDefaults(ctx context.Context) error {
 		return nil
 	}
 	defer func() { cf.defaulting, cf.aliasPresence = nil, nil }()
+
 	root := reflect.ValueOf(cf.conf).Elem()
 	cf.aliasPresence = gatherAliasPresence(root, cf.present)
+
 	return cf.defaultStruct(ctx, root, cf.present, true, nil)
 }
 
@@ -39,6 +41,7 @@ func (cf *loadState) applyDefaults(ctx context.Context) error {
 func gatherAliasPresence(root reflect.Value, p *presence) map[ptrKey]*presence {
 	w := aliasWalk{reached: make(map[ptrKey][]*presence), walking: make(map[ptrKey]bool)}
 	w.walkStruct(root, p)
+
 	return mergeAliasPresence(w.reached)
 }
 
@@ -54,13 +57,16 @@ type aliasWalk struct {
 func (w *aliasWalk) walkStruct(v reflect.Value, p *presence) {
 	if v.CanAddr() {
 		key := ptrKey{t: reflect.PointerTo(v.Type()), p: v.Addr().Pointer()}
+
 		w.reached[key] = append(w.reached[key], p)
 		if w.walking[key] {
 			return
 		}
+
 		w.walking[key] = true
 		defer delete(w.walking, key)
 	}
+
 	for i := range v.NumField() {
 		if v.Type().Field(i).IsExported() {
 			w.walkValue(v.Field(i), p.field(i))
@@ -80,6 +86,7 @@ func (w *aliasWalk) walkValue(v reflect.Value, p *presence) {
 		if v.IsNil() || !hasStructElements(v.Type().Elem()) {
 			return
 		}
+
 		for it := v.MapRange(); it.Next(); {
 			value := reflect.New(v.Type().Elem()).Elem()
 			value.Set(it.Value())
@@ -90,6 +97,7 @@ func (w *aliasWalk) walkValue(v reflect.Value, p *presence) {
 		if !hasStructElements(v.Type().Elem()) {
 			return
 		}
+
 		for i := range v.Len() {
 			w.walkValue(v.Index(i), p.elem(i))
 		}
@@ -101,19 +109,24 @@ func (w *aliasWalk) walkValue(v reflect.Value, p *presence) {
 // path, the presence of all those paths (see unionPresence).
 func mergeAliasPresence(reached map[ptrKey][]*presence) map[ptrKey]*presence {
 	var merged map[ptrKey]*presence
+
 	for key, all := range reached {
 		if len(all) <= 1 {
 			continue
 		}
+
 		var m *presence
 		for _, ap := range all {
 			m = unionPresence(m, ap)
 		}
+
 		if merged == nil {
 			merged = make(map[ptrKey]*presence)
 		}
+
 		merged[key] = m
 	}
+
 	return merged
 }
 
@@ -127,6 +140,7 @@ func unionPresence(a, b *presence) *presence {
 	case b == nil:
 		return a
 	}
+
 	out := &presence{set: a.set || b.set, envGrown: a.envGrown || b.envGrown}
 	switch {
 	case a.envGrown && b.envGrown:
@@ -136,20 +150,25 @@ func unionPresence(a, b *presence) *presence {
 	case b.envGrown:
 		out.envBase = b.envBase
 	}
+
 	if a.fields != nil || b.fields != nil {
 		out.fields = make(map[int]*presence, max(len(a.fields), len(b.fields)))
 		maps.Copy(out.fields, a.fields)
+
 		for i, c := range b.fields {
 			out.fields[i] = unionPresence(out.fields[i], c)
 		}
 	}
+
 	if a.entries != nil || b.entries != nil {
 		out.entries = make(map[any]*presence, max(len(a.entries), len(b.entries)))
 		maps.Copy(out.entries, a.entries)
+
 		for k, c := range b.entries {
 			out.entries[k] = unionPresence(out.entries[k], c)
 		}
 	}
+
 	if a.elems != nil || b.elems != nil {
 		out.elems = make([]*presence, max(len(a.elems), len(b.elems)))
 		for i := range out.elems {
@@ -158,6 +177,7 @@ func unionPresence(a, b *presence) *presence {
 	}
 	// A null holds only when nothing below the value was set through a path.
 	out.null = (a.null || b.null) && out.fields == nil && out.entries == nil && out.elems == nil
+
 	return out
 }
 
@@ -188,9 +208,11 @@ func (cf *loadState) defaultStruct(ctx context.Context, v reflect.Value, p *pres
 		if _, done := cf.defaulting[key]; done {
 			return nil
 		}
+
 		if cf.defaulting == nil {
 			cf.defaulting = make(map[ptrKey]struct{})
 		}
+
 		cf.defaulting[key] = struct{}{}
 		if merged, ok := cf.aliasPresence[key]; ok {
 			p = merged
@@ -200,22 +222,27 @@ func (cf *loadState) defaultStruct(ctx context.Context, v reflect.Value, p *pres
 			defer delete(cf.defaulting, key)
 		}
 	}
+
 	if withDefaulter {
 		cf.callDefaulter(v, p)
 	}
 
 	t := v.Type()
+
 	path = append(slices.Clip(path), t)
 	for i := range t.NumField() {
 		sf := t.Field(i)
+
 		fv := v.Field(i)
 		if sf.PkgPath != "" || !fv.CanSet() {
 			continue
 		}
+
 		if err := cf.defaultField(ctx, fv, sf, p.field(i), path); err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -229,8 +256,10 @@ func (cf *loadState) defaultField(ctx context.Context, fv reflect.Value, sf refl
 			if !allocatesPointer(sf, tag, p, path) {
 				return nil
 			}
+
 			fv.Set(reflect.New(sf.Type.Elem()))
 		}
+
 		return cf.defaultStruct(ctx, fv.Elem(), p, !sf.Anonymous, path)
 	case sf.Type.Kind() == reflect.Struct:
 		return cf.defaultStruct(ctx, fv, p, false, path)
@@ -241,6 +270,7 @@ func (cf *loadState) defaultField(ctx context.Context, fv reflect.Value, sf refl
 			return err
 		}
 	}
+
 	return cf.defaultElements(ctx, fv, p, path)
 }
 
@@ -253,9 +283,11 @@ func allocatesPointer(sf reflect.StructField, tag string, p *presence, path []re
 	if slices.Contains(path, elem) {
 		return false
 	}
+
 	if sf.Anonymous {
 		return true
 	}
+
 	return tag != "-" && !p.isNull() && allocatedByFieldList(elem, nil)
 }
 
@@ -271,6 +303,7 @@ func (cf *loadState) applyTag(ctx context.Context, fv reflect.Value, value strin
 	if err != nil {
 		return err
 	}
+
 	return cf.setDefault(ctx, fv, substituted)
 }
 
@@ -281,6 +314,7 @@ func defaultSetError(err error, tag string) error {
 	if err == nil || !loadersecrets.HasSecrets(tag) {
 		return err
 	}
+
 	return sealParseError(err, "the default tag", loadersecrets.References(tag))
 }
 
@@ -289,6 +323,7 @@ func needsDefault(fv reflect.Value) bool {
 	for fv.Kind() == reflect.Pointer && !fv.IsNil() {
 		fv = fv.Elem()
 	}
+
 	return fv.IsZero()
 }
 
@@ -302,6 +337,7 @@ func (cf *loadState) fillEnvCollection(ctx context.Context, fv reflect.Value, va
 	if p == nil || p.set || !p.envGrown || fv.Kind() != reflect.Slice && fv.Kind() != reflect.Map {
 		return nil
 	}
+
 	if fv.Kind() == reflect.Slice && !hasEnvHole(fv, p) {
 		// Nothing to fill: don't substitute (and in strict mode fail on) a
 		// default that is never applied.
@@ -312,6 +348,7 @@ func (cf *loadState) fillEnvCollection(ctx context.Context, fv reflect.Value, va
 	if err != nil {
 		return err
 	}
+
 	defaults := reflect.New(fv.Type()).Elem()
 	if err := cf.setDefault(ctx, defaults, substituted); err != nil {
 		return err
@@ -323,6 +360,7 @@ func (cf *loadState) fillEnvCollection(ctx context.Context, fv reflect.Value, va
 				fv.SetMapIndex(it.Key(), it.Value())
 			}
 		}
+
 		return nil
 	}
 
@@ -331,11 +369,13 @@ func (cf *loadState) fillEnvCollection(ctx context.Context, fv reflect.Value, va
 		reflect.Copy(grown, fv)
 		fv.Set(grown)
 	}
+
 	for i := p.envBase; i < min(defaults.Len(), fv.Len()); i++ {
 		if p.elem(i) == nil && fv.Index(i).IsZero() {
 			fv.Index(i).Set(defaults.Index(i))
 		}
 	}
+
 	return nil
 }
 
@@ -346,11 +386,13 @@ func hasEnvHole(fv reflect.Value, p *presence) bool {
 	if p.envBase == 0 {
 		return true
 	}
+
 	for i := p.envBase; i < fv.Len(); i++ {
 		if p.elem(i) == nil && fv.Index(i).IsZero() {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -360,6 +402,7 @@ func (cf *loadState) substituteDefault(value string) (string, error) {
 	if cf.options.strict {
 		return substituteEnvVariablesStrict(value)
 	}
+
 	return substituteEnvVariables(value), nil
 }
 
@@ -371,7 +414,9 @@ func (cf *loadState) setDefault(ctx context.Context, fv reflect.Value, substitut
 	if err != nil {
 		return err
 	}
+
 	_, err = set(fv, resolved, true, true, cf.options.strict)
+
 	return defaultSetError(err, substituted)
 }
 
@@ -384,18 +429,22 @@ func (cf *loadState) defaultElements(ctx context.Context, v reflect.Value, p *pr
 		if v.IsNil() || !hasStructElements(v.Type().Elem()) {
 			return nil
 		}
+
 		for it := v.MapRange(); it.Next(); {
 			value := reflect.New(v.Type().Elem()).Elem()
 			value.Set(it.Value())
+
 			if err := cf.defaultElement(ctx, value, p.entry(it.Key()), path); err != nil {
 				return err
 			}
+
 			v.SetMapIndex(it.Key(), value)
 		}
 	case reflect.Slice, reflect.Array:
 		if !hasStructElements(v.Type().Elem()) {
 			return nil
 		}
+
 		for i := range v.Len() {
 			if err := cf.defaultElement(ctx, v.Index(i), p.elem(i), path); err != nil {
 				return err
@@ -403,6 +452,7 @@ func (cf *loadState) defaultElements(ctx context.Context, v reflect.Value, p *pr
 		}
 	default:
 	}
+
 	return nil
 }
 
@@ -412,14 +462,18 @@ func (cf *loadState) defaultElement(ctx context.Context, v reflect.Value, p *pre
 		if v.IsNil() {
 			return nil
 		}
+
 		if v.Elem().Kind() == reflect.Struct {
 			return cf.defaultStruct(ctx, v.Elem(), p, true, path)
 		}
+
 		v = v.Elem()
 	}
+
 	if v.Kind() == reflect.Struct {
 		return cf.defaultStruct(ctx, v, p, true, path)
 	}
+
 	return cf.defaultElements(ctx, v, p, path)
 }
 
@@ -450,25 +504,31 @@ func allocatedByFieldList(t reflect.Type, visiting map[reflect.Type]bool) bool {
 	if visiting[t] {
 		return false
 	}
+
 	if visiting == nil {
 		visiting = map[reflect.Type]bool{}
 	}
+
 	visiting[t] = true
 
 	for sf := range t.Fields() {
 		if sf.PkgPath != "" {
 			continue
 		}
+
 		if et := derefType(sf.Type); sf.Anonymous && et.Kind() == reflect.Struct {
 			if allocatedByFieldList(et, visiting) {
 				return true
 			}
+
 			continue
 		}
+
 		if !isStructPointer(sf.Type) {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -485,12 +545,14 @@ func (cf *loadState) callDefaulter(v reflect.Value, p *presence) {
 	if !v.CanAddr() {
 		return
 	}
+
 	d, ok := reflect.TypeAssert[Defaulter](v.Addr())
 	if !ok {
 		return
 	}
 
 	explicit := takeSnapshot(v, p)
+
 	d.Default()
 	explicit.restore(v)
 }
@@ -523,10 +585,12 @@ func takeSnapshot(v reflect.Value, p *presence) *snapshot {
 	if p == nil || !v.IsValid() {
 		return nil
 	}
+
 	if isWholeValue(v.Type(), p) {
 		if !p.set && !p.null {
 			return nil
 		}
+
 		return &snapshot{value: deepCopy(v)}
 	}
 
@@ -534,10 +598,12 @@ func takeSnapshot(v reflect.Value, p *presence) *snapshot {
 		if v.IsNil() {
 			return nil
 		}
+
 		v = v.Elem()
 	}
 
 	s := &snapshot{length: -1}
+
 	switch v.Kind() {
 	case reflect.Struct:
 		s.fields = snapshotFields(v, p)
@@ -547,12 +613,14 @@ func takeSnapshot(v reflect.Value, p *presence) *snapshot {
 		if p.set && v.Kind() == reflect.Slice {
 			s.length = len(p.elems)
 		}
+
 		s.elems = make([]*snapshot, min(len(p.elems), v.Len()))
 		for i := range s.elems {
 			s.elems[i] = takeSnapshot(v.Index(i), p.elems[i])
 		}
 	default:
 	}
+
 	return s
 }
 
@@ -563,10 +631,12 @@ func snapshotFields(v reflect.Value, p *presence) map[int]*snapshot {
 		if !v.Type().Field(i).IsExported() {
 			continue
 		}
+
 		if cs := takeSnapshot(v.Field(i), c); cs != nil {
 			fields[i] = cs
 		}
 	}
+
 	return fields
 }
 
@@ -574,17 +644,21 @@ func snapshotFields(v reflect.Value, p *presence) map[int]*snapshot {
 // convert to its key type.
 func snapshotEntries(v reflect.Value, p *presence) []entrySnapshot {
 	var entries []entrySnapshot
+
 	keyType := v.Type().Key()
+
 	for k, c := range p.entries {
 		key := reflect.ValueOf(k)
 		if !key.IsValid() || !key.Type().ConvertibleTo(keyType) {
 			continue
 		}
+
 		key = key.Convert(keyType)
 		if cs := takeSnapshot(v.MapIndex(key), c); cs != nil {
 			entries = append(entries, entrySnapshot{key: key, snap: cs})
 		}
 	}
+
 	return entries
 }
 
@@ -594,6 +668,7 @@ func isWholeValue(t reflect.Type, p *presence) bool {
 	if p.null {
 		return true
 	}
+
 	switch derefType(t).Kind() {
 	case reflect.Struct:
 		return p.fields == nil
@@ -614,6 +689,7 @@ func (s *snapshot) restore(v reflect.Value) {
 	if s == nil {
 		return
 	}
+
 	if s.value.IsValid() {
 		v.Set(s.value)
 		return
@@ -623,6 +699,7 @@ func (s *snapshot) restore(v reflect.Value) {
 		if v.IsNil() {
 			v.Set(reflect.New(v.Type().Elem()))
 		}
+
 		v = v.Elem()
 	}
 
@@ -635,11 +712,13 @@ func (s *snapshot) restore(v reflect.Value) {
 		if v.IsNil() {
 			v.Set(reflect.MakeMap(v.Type()))
 		}
+
 		for _, e := range s.entries {
 			value := reflect.New(v.Type().Elem()).Elem()
 			if current := v.MapIndex(e.key); current.IsValid() {
 				value.Set(current)
 			}
+
 			e.snap.restore(value)
 			v.SetMapIndex(e.key, value)
 		}
@@ -648,11 +727,13 @@ func (s *snapshot) restore(v reflect.Value) {
 		if n < 0 {
 			n = max(v.Len(), len(s.elems))
 		}
+
 		if v.Len() != n {
 			resized := reflect.MakeSlice(v.Type(), n, n)
 			reflect.Copy(resized, v)
 			v.Set(resized)
 		}
+
 		for i, c := range s.elems {
 			c.restore(v.Index(i))
 		}
@@ -675,6 +756,7 @@ func deepCopy(v reflect.Value) reflect.Value {
 func deepCopySeen(v reflect.Value, seen map[ptrKey]reflect.Value) reflect.Value {
 	out := reflect.New(v.Type()).Elem()
 	copyInto(out, v, seen)
+
 	return out
 }
 
@@ -700,6 +782,7 @@ func copyInto(dst, src reflect.Value, seen map[ptrKey]reflect.Value) {
 		}
 	case reflect.Struct:
 		dst.Set(src)
+
 		for i := range src.NumField() {
 			if dst.Field(i).CanSet() {
 				copyInto(dst.Field(i), src.Field(i), seen)
@@ -716,11 +799,13 @@ func copyPointer(dst, src reflect.Value, seen map[ptrKey]reflect.Value) {
 	if src.IsNil() {
 		return
 	}
+
 	key := keyOf(src)
 	if p, ok := seen[key]; ok {
 		dst.Set(p)
 		return
 	}
+
 	p := reflect.New(src.Type().Elem())
 	seen[key] = p
 	copyInto(p.Elem(), src.Elem(), seen)
@@ -732,10 +817,12 @@ func copyMap(dst, src reflect.Value, seen map[ptrKey]reflect.Value) {
 	if src.IsNil() {
 		return
 	}
+
 	m := reflect.MakeMapWithSize(src.Type(), src.Len())
 	for it := src.MapRange(); it.Next(); {
 		m.SetMapIndex(it.Key(), deepCopySeen(it.Value(), seen))
 	}
+
 	dst.Set(m)
 }
 

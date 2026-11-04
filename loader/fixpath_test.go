@@ -86,6 +86,7 @@ func TestWithPathOnEnvKey(t *testing.T) {
 
 	t.Run("variable set", func(t *testing.T) {
 		t.Setenv("NOMOS_PATH_ON_ENV_KEY", filepath.Join(fromEnv, "config.yaml"))
+
 		cfg := &pathConfig{}
 		_, err := loader.New(nil, loader.WithPathOnEnvKey("NOMOS_PATH_ON_ENV_KEY", filepath.Join(fallback, "config.yaml")),
 			loader.WithSkipEnv()).Load(cfg)
@@ -117,6 +118,7 @@ func TestStringOptions_Pointer(t *testing.T) {
 	})
 	t.Run("nil and blank pointers leave options unset", func(t *testing.T) {
 		t.Setenv("NOMOSPTR_NAME", "from-env")
+
 		cfg := &pathConfig{}
 		_, err := loader.New(nil,
 			loader.WithPath((*string)(nil)), loader.WithPath(&blank),
@@ -133,8 +135,11 @@ func TestStringOptions_Pointer(t *testing.T) {
 				Value string `cfg:"value"`
 			} `cfg:"section"`
 		}
+
 		delimiter, tag := "--", "cfg"
+
 		t.Setenv("NOMOSPTR_SECTION--VALUE", "nested")
+
 		cfg := &tagged{}
 		_, err := loader.New(nil, loader.WithEnvPrefix("NOMOSPTR"),
 			loader.WithEnvSectionDelimiter(&delimiter), loader.WithStructTag(&tag)).Load(cfg)

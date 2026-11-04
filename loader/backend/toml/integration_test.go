@@ -45,25 +45,31 @@ type itConfig struct {
 // writeFiles writes files (path relative to a temp dir) and returns the dir.
 func writeFiles(t testing.TB, files map[string]string) string {
 	t.Helper()
+
 	dir := t.TempDir()
 	for rel, content := range files {
 		p := filepath.Join(dir, rel)
 		require.NoError(t, os.MkdirAll(filepath.Dir(p), 0o700))
 		require.NoError(t, os.WriteFile(p, []byte(content), 0o600))
 	}
+
 	return dir
 }
 
 // decodeFile decodes one file of dir into out, strictly when asked.
 func decodeFile(t testing.TB, dir, name string, strict bool, out any) error {
 	t.Helper()
+
 	f, err := os.Open(filepath.Join(dir, name))
 	require.NoError(t, err)
+
 	defer func() { _ = f.Close() }()
+
 	b := &toml.Backend{}
 	if strict {
 		return b.DecodeStrict(f, out)
 	}
+
 	return b.Decode(f, out)
 }
 
@@ -106,6 +112,7 @@ func TestIntegration_ArraysOfTablesStrict(t *testing.T) {
 	t.Parallel()
 
 	dir := writeFiles(t, map[string]string{"base.toml": itBase})
+
 	var cfg itConfig
 	require.NoError(t, decodeFile(t, dir, "base.toml", true, &cfg))
 
@@ -131,6 +138,7 @@ func TestIntegration_LayeredFiles(t *testing.T) {
 		"base.toml":     itBase,
 		"override.toml": "[[listeners]]\nport = 8443\n\n[database]\nhost = \"db.prod\"\n",
 	})
+
 	var cfg itConfig
 	require.NoError(t, decodeFile(t, dir, "base.toml", true, &cfg))
 	require.NoError(t, decodeFile(t, dir, "override.toml", true, &cfg))
@@ -165,12 +173,15 @@ func TestIntegration_StrictUnknownKeys(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			dir := writeFiles(t, map[string]string{"c.toml": tc.doc})
+
 			var cfg itConfig
+
 			err := decodeFile(t, dir, "c.toml", true, &cfg)
 			if !tc.want {
 				require.NoError(t, err)
 				return
 			}
+
 			require.ErrorIs(t, err, backend.ErrUnknownField)
 
 			var lenient itConfig
@@ -192,13 +203,18 @@ func TestIntegration_DecodeKeysNestedTables(t *testing.T) {
 
 	keysOf := func(name string) map[int]backend.KeyNode {
 		t.Helper()
+
 		f, err := os.Open(filepath.Join(dir, name))
 		require.NoError(t, err)
+
 		defer func() { _ = f.Close() }()
+
 		root, err := (&toml.Backend{}).DecodeKeys(f)
 		require.NoError(t, err)
+
 		fs, ok := root.Fields(cfgType)
 		require.True(t, ok)
+
 		return fs
 	}
 
@@ -213,6 +229,7 @@ func TestIntegration_DecodeKeysNestedTables(t *testing.T) {
 	tls, ok := public[2].Fields(reflect.TypeFor[itTLS]())
 	require.True(t, ok)
 	require.Len(t, tls, 2)
+
 	admin, ok := listeners[1].Fields(reflect.TypeFor[itListener]())
 	require.True(t, ok)
 	require.NotContains(t, admin, 2, "admin sets no tls table")
@@ -241,5 +258,6 @@ func keys(m map[int]backend.KeyNode) []int {
 	for k := range m {
 		out = append(out, k)
 	}
+
 	return out
 }

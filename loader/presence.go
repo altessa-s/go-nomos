@@ -49,6 +49,7 @@ func (p *presence) field(i int) *presence {
 	if p == nil {
 		return nil
 	}
+
 	return p.fields[i]
 }
 
@@ -57,6 +58,7 @@ func (p *presence) entry(k reflect.Value) *presence {
 	if p == nil || p.entries == nil || !k.CanInterface() {
 		return nil
 	}
+
 	return p.entries[k.Interface()]
 }
 
@@ -65,6 +67,7 @@ func (p *presence) elem(i int) *presence {
 	if p == nil || i >= len(p.elems) {
 		return nil
 	}
+
 	return p.elems[i]
 }
 
@@ -73,6 +76,7 @@ func bindPresence(t reflect.Type, n backend.KeyNode) *presence {
 	if n == nil {
 		return nil
 	}
+
 	p := &presence{set: true}
 	if n.IsNull() {
 		p.null = true
@@ -104,6 +108,7 @@ func bindPresence(t reflect.Type, n backend.KeyNode) *presence {
 		}
 	default:
 	}
+
 	return p
 }
 
@@ -125,6 +130,7 @@ func mergePresence(dst, src *presence, t reflect.Type, reuseSlices bool) *presen
 		if nullable(t.Kind()) {
 			return src
 		}
+
 		return dst
 	case dst.null:
 		return src
@@ -151,13 +157,16 @@ func mergeStructPresence(dst, src *presence, t reflect.Type, reuseSlices bool) *
 	if src.fields == nil {
 		return src
 	}
+
 	out := &presence{set: true, fields: maps.Clone(dst.fields)}
 	if out.fields == nil {
 		out.fields = make(map[int]*presence, len(src.fields))
 	}
+
 	for i, c := range src.fields {
 		out.fields[i] = mergePresence(out.fields[i], c, t.Field(i).Type, reuseSlices)
 	}
+
 	return out
 }
 
@@ -168,17 +177,21 @@ func mergeMapPresence(dst, src *presence, t reflect.Type) *presence {
 	if src.entries == nil {
 		return src
 	}
+
 	out := &presence{set: true, entries: maps.Clone(dst.entries)}
 	if out.entries == nil {
 		out.entries = make(map[any]*presence, len(src.entries))
 	}
+
 	keepOnNull := !nullable(t.Elem().Kind())
 	for k, c := range src.entries {
 		if _, ok := out.entries[k]; ok && keepOnNull && c.isNull() {
 			continue // a null does not override an existing entry it cannot hold
 		}
+
 		out.entries[k] = c
 	}
+
 	return out
 }
 
@@ -189,12 +202,16 @@ func mergeSlicePresence(dst, src *presence, t reflect.Type, reuseSlices bool) *p
 	if !reuseSlices || src.elems == nil || len(src.elems) > len(backing) {
 		return src
 	}
+
 	n := len(src.elems)
+
 	out := &presence{set: true, elems: make([]*presence, n)}
 	for i, c := range src.elems {
 		out.elems[i] = mergePresence(backing[i], c, t.Elem(), reuseSlices)
 	}
+
 	out.spare = backing[n:]
+
 	return out
 }
 
@@ -207,11 +224,14 @@ func mergeArrayPresence(dst, src *presence, t reflect.Type, reuseSlices bool) *p
 			out.elems = append(out.elems, c)
 			continue
 		}
+
 		if reuseSlices {
 			c = mergePresence(out.elems[i], c, t.Elem(), reuseSlices)
 		}
+
 		out.elems[i] = c
 	}
+
 	return out
 }
 
@@ -233,6 +253,7 @@ func derefType(t reflect.Type) reflect.Type {
 		seen[t] = true
 		t = t.Elem()
 	}
+
 	return t
 }
 
@@ -258,6 +279,7 @@ func indexSteps(base []pathStep, index []int) []pathStep {
 	for _, i := range index {
 		steps = append(steps, pathStep{kind: fieldStep, index: i})
 	}
+
 	return steps
 }
 
@@ -292,18 +314,22 @@ func (p *presence) reach(steps []pathStep) *presence {
 		cur.null = false
 		cur = cur.child(s)
 	}
+
 	cur.null = false
+
 	return cur
 }
 
 // child returns the presence s selects, creating it when absent.
 func (p *presence) child(s pathStep) *presence {
 	var c *presence
+
 	switch s.kind {
 	case fieldStep:
 		if p.fields == nil {
 			p.fields = make(map[int]*presence)
 		}
+
 		if c = p.fields[s.index]; c == nil {
 			c = &presence{}
 			p.fields[s.index] = c
@@ -312,6 +338,7 @@ func (p *presence) child(s pathStep) *presence {
 		if p.entries == nil {
 			p.entries = make(map[any]*presence)
 		}
+
 		if c = p.entries[s.key]; c == nil {
 			c = &presence{}
 			p.entries[s.key] = c
@@ -320,11 +347,13 @@ func (p *presence) child(s pathStep) *presence {
 		if s.index >= len(p.elems) {
 			p.elems = append(p.elems, make([]*presence, s.index+1-len(p.elems))...)
 		}
+
 		if c = p.elems[s.index]; c == nil {
 			c = &presence{}
 			p.elems[s.index] = c
 		}
 	}
+
 	return c
 }
 
@@ -347,24 +376,31 @@ func (n genericNode) Fields(t reflect.Type) (map[int]backend.KeyNode, bool) {
 	if !ok {
 		return nil, false
 	}
+
 	out := make(map[int]backend.KeyNode)
+
 	for i := range t.NumField() {
 		sf := t.Field(i)
+
 		name, _, _ := strings.Cut(sf.Tag.Get(n.tag), ",")
 		if name == "-" || sf.PkgPath != "" && !sf.Anonymous {
 			continue
 		}
+
 		if name == "" && sf.Anonymous && derefType(sf.Type).Kind() == reflect.Struct {
 			out[i] = n
 			continue
 		}
+
 		if name == "" {
 			name = sf.Name
 		}
+
 		if v, ok := m[name]; ok {
 			out[i] = genericNode{value: v, tag: n.tag}
 			continue
 		}
+
 		for _, k := range slices.Sorted(maps.Keys(m)) {
 			if strings.EqualFold(k, name) {
 				out[i] = genericNode{value: m[k], tag: n.tag}
@@ -372,6 +408,7 @@ func (n genericNode) Fields(t reflect.Type) (map[int]backend.KeyNode, bool) {
 			}
 		}
 	}
+
 	return out, true
 }
 
@@ -381,10 +418,12 @@ func (n genericNode) Entries(t reflect.Type) (map[any]backend.KeyNode, bool) {
 	if !ok || t.Key().Kind() != reflect.String {
 		return nil, false
 	}
+
 	out := make(map[any]backend.KeyNode, len(m))
 	for k, v := range m {
 		out[reflect.ValueOf(k).Convert(t.Key()).Interface()] = genericNode{value: v, tag: n.tag}
 	}
+
 	return out, true
 }
 
@@ -394,10 +433,12 @@ func (n genericNode) Elems(reflect.Type) ([]backend.KeyNode, bool) {
 	if v.Kind() != reflect.Slice {
 		return nil, false
 	}
+
 	out := make([]backend.KeyNode, v.Len())
 	for i := range v.Len() {
 		out[i] = genericNode{value: v.Index(i).Interface(), tag: n.tag}
 	}
+
 	return out, true
 }
 
@@ -413,6 +454,7 @@ func genericMap(v any) (map[string]any, bool) {
 				out[s] = v
 			}
 		}
+
 		return out, true
 	default:
 		return nil, false

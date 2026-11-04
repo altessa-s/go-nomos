@@ -52,6 +52,7 @@ func (conv *Parser) ParseContext(ctx context.Context, reader io.Reader, parseCom
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
+
 		lineNum++
 		line := strings.TrimSpace(scanner.Text())
 
@@ -65,7 +66,9 @@ func (conv *Parser) ParseContext(ctx context.Context, reader io.Reader, parseCom
 			if !parseComments {
 				continue
 			}
+
 			line = strings.TrimSpace(comment)
+
 			key, _, assignment := strings.Cut(line, "=")
 			if !assignment || strings.TrimSpace(key) == "" {
 				continue
@@ -82,6 +85,7 @@ func (conv *Parser) ParseContext(ctx context.Context, reader io.Reader, parseCom
 		if !utf8.ValidString(key) {
 			return nil, fmt.Errorf("%w: invalid variable name on line %d", ErrInvalidInput, lineNum)
 		}
+
 		value := strings.TrimSpace(parts[1])
 
 		envVars[key] = value
@@ -124,6 +128,7 @@ func (conv *Parser) setNestedValue(data map[string]any, key, value string) error
 	}
 
 	current := data
+
 	for i := 0; i < len(parts); {
 		// Convert SCREAMING_SNAKE_CASE to camelCase
 		fieldName := corestrings.ScreamingSnakeToCamelCase(parts[i])
@@ -132,7 +137,9 @@ func (conv *Parser) setNestedValue(data map[string]any, key, value string) error
 			if _, exists := current[fieldName]; exists {
 				return fmt.Errorf("%w: %s", ErrConflictingKey, key)
 			}
+
 			current[fieldName] = conv.parseValue(value)
+
 			return nil
 		}
 
@@ -143,8 +150,10 @@ func (conv *Parser) setNestedValue(data map[string]any, key, value string) error
 			if err != nil {
 				return err
 			}
+
 			current = nestedMap
 			i++
+
 			continue
 		}
 
@@ -163,7 +172,9 @@ func (conv *Parser) setNestedValue(data map[string]any, key, value string) error
 			if previouslyAllocated && !isEmptyPlaceholder(slice[idx]) {
 				return fmt.Errorf("%w: %s", ErrConflictingKey, key)
 			}
+
 			slice[idx] = conv.parseValue(value)
+
 			return nil
 		}
 
@@ -172,6 +183,7 @@ func (conv *Parser) setNestedValue(data map[string]any, key, value string) error
 		if !ok {
 			return fmt.Errorf("%w: %s", ErrConflictingKey, key)
 		}
+
 		current = element
 		i += 2
 	}
@@ -183,14 +195,17 @@ func (conv *Parser) setNestedValue(data map[string]any, key, value string) error
 // when absent; a non-map value there conflicts with key.
 func nestedSection(current map[string]any, fieldName, key string) (map[string]any, error) {
 	existing, exists := current[fieldName]
+
 	nestedMap, ok := existing.(map[string]any)
 	if exists && !ok {
 		return nil, fmt.Errorf("%w: %s", ErrConflictingKey, key)
 	}
+
 	if !ok {
 		nestedMap = make(map[string]any)
 		current[fieldName] = nestedMap
 	}
+
 	return nestedMap, nil
 }
 
@@ -199,15 +214,19 @@ func nestedSection(current map[string]any, fieldName, key string) (map[string]an
 // non-array value there conflicts with key.
 func growArray(current map[string]any, fieldName string, idx int, key string) ([]any, bool, error) {
 	existing, exists := current[fieldName]
+
 	slice, ok := existing.([]any)
 	if exists && !ok {
 		return nil, false, fmt.Errorf("%w: %s", ErrConflictingKey, key)
 	}
+
 	previouslyAllocated := idx < len(slice)
 	for len(slice) <= idx {
 		slice = append(slice, make(map[string]any))
 	}
+
 	current[fieldName] = slice
+
 	return slice, previouslyAllocated, nil
 }
 
@@ -226,6 +245,7 @@ func (conv *Parser) splitKey(key string) []string {
 
 	// Then split each section by . (for array indices)
 	var parts []string
+
 	for _, section := range sections {
 		if strings.Contains(section, ".") {
 			dotParts := strings.Split(section, ".")
@@ -250,6 +270,7 @@ func (conv *Parser) parseValue(value string) any {
 			// Preserve legacy quoted paths whose backslashes are not escape sequences.
 			return value[1 : len(value)-1]
 		}
+
 		if value[0] == '\'' && value[len(value)-1] == '\'' {
 			return value[1 : len(value)-1]
 		}
@@ -268,6 +289,7 @@ func parseScalar(value string) any {
 	if value == "true" {
 		return true
 	}
+
 	if value == "false" {
 		return false
 	}
@@ -301,6 +323,7 @@ func (conv *Parser) parseArray(value string) any {
 	if !ok {
 		return value
 	}
+
 	result := make([]any, len(elements))
 
 	for i, element := range elements {
@@ -312,24 +335,32 @@ func (conv *Parser) parseArray(value string) any {
 
 // splitArrayElements ignores commas inside quoted strings and nested arrays.
 func splitArrayElements(content string) ([]string, bool) {
-	var elements []string
-	var quote rune
+	var (
+		elements []string
+		quote    rune
+	)
+
 	escaped, depth, start := false, 0, 0
+
 	for i, char := range content {
 		if quote != 0 {
 			if escaped {
 				escaped = false
 				continue
 			}
+
 			if quote == '"' && char == '\\' {
 				escaped = true
 				continue
 			}
+
 			if char == quote {
 				quote = 0
 			}
+
 			continue
 		}
+
 		switch char {
 		case '\'', '"':
 			quote = char
@@ -350,8 +381,10 @@ func splitArrayElements(content string) ([]string, bool) {
 			}
 		}
 	}
+
 	if quote != 0 || depth != 0 {
 		return nil, false
 	}
+
 	return append(elements, content[start:]), true
 }

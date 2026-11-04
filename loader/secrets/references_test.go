@@ -40,6 +40,7 @@ func TestReferences(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
+
 			got := secrets.References(tc.content)
 			require.Equal(t, tc.want, got)
 			require.Equal(t, len(got) > 0, secrets.HasSecrets(tc.content), "References agrees with HasSecrets")
@@ -52,7 +53,9 @@ func TestReferences_MatchesExpand(t *testing.T) {
 	t.Parallel()
 
 	content := "a=$__secret{app:a} b=$__secret{app:b} a2=$__secret{app:a}"
+
 	var resolved []string
+
 	e := secrets.New(secrets.ResolverFunc(func(_ context.Context, ref string) (string, error) {
 		resolved = append(resolved, ref)
 		return "v", nil

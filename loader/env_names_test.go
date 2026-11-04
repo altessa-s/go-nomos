@@ -34,9 +34,11 @@ type namesConfig struct {
 
 func loadNames(t testing.TB) *namesConfig {
 	t.Helper()
+
 	cfg := &namesConfig{}
 	_, err := loader.New(nil, loader.WithEnvPrefix("ENVNAME")).Load(cfg)
 	require.NoError(t, err)
+
 	return cfg
 }
 
@@ -219,6 +221,7 @@ func TestLoad_EnvNilPointerEntries(t *testing.T) {
 	}
 	_, err := loader.New(nil, loader.WithEnvPrefix("ENVNAME")).Load(cfg)
 	require.NoError(t, err)
+
 	want := func(host string) *namesNilGroup { return &namesNilGroup{Name: "unnamed", Hosts: []string{host}} }
 	require.Equal(t, want("p"), cfg.PGroups["east"])
 	require.Equal(t, want("g"), cfg.Groups["east"])
@@ -292,9 +295,11 @@ func TestLoad_EnvTagWithDelimiter(t *testing.T) {
 			delim: loader.DefaultEnvSectionDelimiter,
 			load: func(t testing.TB) namesDelimTagConfig {
 				t.Helper()
+
 				cfg := &namesDelimTagConfig{}
 				_, err := loader.New(nil, loader.WithEnvPrefix("ENVNAME")).Load(cfg)
 				require.NoError(t, err)
+
 				return *cfg
 			},
 		},
@@ -303,9 +308,11 @@ func TestLoad_EnvTagWithDelimiter(t *testing.T) {
 			delim: "--",
 			load: func(t testing.TB) namesDelimTagConfig {
 				t.Helper()
+
 				cfg := &namesDashTagConfig{}
 				_, err := loader.New(nil, loader.WithEnvPrefix("ENVNAME"), loader.WithEnvSectionDelimiter("--")).Load(cfg)
 				require.NoError(t, err)
+
 				return namesDelimTagConfig(*cfg)
 			},
 		},

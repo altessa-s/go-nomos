@@ -36,24 +36,30 @@ log:
 func writeFile(t testing.TB, path, content string) string {
 	t.Helper()
 	require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
+
 	return path
 }
 
 func readFile(t testing.TB, path string) string {
 	t.Helper()
+
 	b, err := os.ReadFile(path)
 	require.NoError(t, err)
+
 	return string(b)
 }
 
 func runConvert(t testing.TB, args ...string) (string, error) {
 	t.Helper()
+
 	cmd := convert.New()
+
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 	cmd.SetArgs(args)
 	err := cmd.ExecuteContext(t.Context())
+
 	return out.String(), err
 }
 
@@ -136,6 +142,7 @@ SERVER__NAME="quoted"
 
 	t.Run("yaml", func(t *testing.T) {
 		t.Parallel()
+
 		to := filepath.Join(dir, "out.yaml")
 		_, err := runConvert(t, "--from", from, "--to", to)
 		require.NoError(t, err)
@@ -158,8 +165,10 @@ SERVER__NAME="quoted"
 		require.NoError(t, err)
 
 		var got map[string]any
+
 		err = (&toml.Backend{}).Decode(strings.NewReader(readFile(t, to)), &got)
 		require.NoError(t, err)
+
 		a := got["a"].(map[string]any)
 		require.Equal(t, true, a["on"])
 		require.InDelta(t, 0.25, a["ratio"], 1e-9)
@@ -182,7 +191,9 @@ func TestConvert_ConfigToConfig(t *testing.T) {
 
 	_, err := runConvert(t, "--from", yamlPath, "--to", tomlPath)
 	require.NoError(t, err)
+
 	var fromTOML map[string]any
+
 	err = (&toml.Backend{}).Decode(strings.NewReader(readFile(t, tomlPath)), &fromTOML)
 	require.NoError(t, err)
 	require.Equal(t, "x", fromTOML["svc"].(map[string]any)["name"])
@@ -190,6 +201,7 @@ func TestConvert_ConfigToConfig(t *testing.T) {
 	back := filepath.Join(dir, "b.yml")
 	_, err = runConvert(t, "--from", tomlPath, "--to", back)
 	require.NoError(t, err)
+
 	var roundTrip map[string]any
 	require.NoError(t, (&yaml3.Backend{}).Decode(bytes.NewReader([]byte(readFile(t, back))), &roundTrip))
 	require.Equal(t, "x", roundTrip["svc"].(map[string]any)["name"])
@@ -292,16 +304,20 @@ func TestConvert_Directory(t *testing.T) {
 
 	t.Run("parallel merge to yaml", func(t *testing.T) {
 		t.Parallel()
+
 		src := t.TempDir()
 		for i := range 6 {
 			writeFile(t, filepath.Join(src, fmt.Sprintf("f%d.yaml", i)), fmt.Sprintf("k%d: %d\n", i, i))
 		}
+
 		to := filepath.Join(t.TempDir(), "out.yaml")
 
 		_, err := runConvert(t, "--from", src, "--to", to)
 		require.NoError(t, err)
+
 		var got map[string]any
 		require.NoError(t, (&yaml3.Backend{}).Decode(bytes.NewReader([]byte(readFile(t, to))), &got))
+
 		for i := range 6 {
 			require.Equal(t, i, got[fmt.Sprintf("k%d", i)])
 		}
@@ -309,10 +325,12 @@ func TestConvert_Directory(t *testing.T) {
 
 	t.Run("parallel merge with a broken file fails", func(t *testing.T) {
 		t.Parallel()
+
 		src := t.TempDir()
 		for i := range 5 {
 			writeFile(t, filepath.Join(src, fmt.Sprintf("f%d.toml", i)), fmt.Sprintf("k%d = %d\n", i, i))
 		}
+
 		writeFile(t, filepath.Join(src, "zz.toml"), "= broken")
 		_, err := runConvert(t, "--from", src, "--to", filepath.Join(t.TempDir(), "o.yaml"))
 		require.Error(t, err)
@@ -354,6 +372,7 @@ func TestConvert_Directory(t *testing.T) {
 		t.Parallel()
 		src := t.TempDir()
 		writeFile(t, filepath.Join(src, "a.env"), "A=1\n")
+
 		for _, target := range []string{"o.yaml", "o.toml", "o.md"} {
 			to := filepath.Join(t.TempDir(), target)
 			_, err := runConvert(t, "--from", src, "--to", to)
@@ -446,6 +465,7 @@ func TestConvert_ToMarkdownArrayElementTypes(t *testing.T) {
 			to := filepath.Join(dir, "out.md")
 			_, err := runConvert(t, "--from", from, "--to", to)
 			require.NoError(t, err)
+
 			md := readFile(t, to)
 			for _, w := range tc.want {
 				require.Contains(t, md, w)

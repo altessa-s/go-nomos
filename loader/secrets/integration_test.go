@@ -39,15 +39,18 @@ type itResolver struct {
 
 func (r *itResolver) Resolve(_ context.Context, ref string) (string, error) {
 	r.calls.Add(1)
+
 	ns, key, ok := strings.Cut(ref, ":")
 	if !ok || ns != "app" {
 		return "", coreerrs.ErrNotFound
 	}
+
 	if r.failing[key] {
 		// The store names the key in its own error; the expander adds
 		// no secret name or value of its own.
 		return "", fmt.Errorf("%w: key %s", errVaultDown, key)
 	}
+
 	return secretValue(key), nil
 }
 
@@ -57,12 +60,14 @@ func secretValue(key string) string { return "S3CR3T-" + key + "-VALUE" }
 // the keys it references.
 func itDocument(n int) (string, []string) {
 	var sb strings.Builder
+
 	keys := make([]string, 0, n)
 	for i := range n {
 		key := "k" + strconv.Itoa(i)
 		keys = append(keys, key)
 		fmt.Fprintf(&sb, "field%d: prefix-$__secret{app:%s}-suffix\n", i, key)
 	}
+
 	return sb.String(), keys
 }
 
@@ -78,6 +83,7 @@ func TestIntegration_ExpandManyPlaceholders(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, secrets.HasSecrets(out))
 	require.EqualValues(t, itPlaceholders, r.calls.Load())
+
 	for i, key := range keys {
 		require.Contains(t, out, fmt.Sprintf("field%d: prefix-%s-suffix\n", i, secretValue(key)))
 	}
@@ -93,6 +99,7 @@ func TestIntegration_ExpandFailingKeysDoNotLeak(t *testing.T) {
 	failing := map[string]bool{keys[50]: true, keys[120]: true, keys[199]: true}
 
 	var logs bytes.Buffer
+
 	logger := slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelWarn}))
 	r := &itResolver{failing: failing}
 	out, err := secrets.New(r, secrets.WithLogger(logger)).Expand(t.Context(), doc)
@@ -100,9 +107,11 @@ func TestIntegration_ExpandFailingKeysDoNotLeak(t *testing.T) {
 	require.ErrorIs(t, err, errVaultDown)
 	require.Empty(t, out)
 	require.EqualValues(t, 51, r.calls.Load(), "expansion stops at the first failing key")
+
 	for _, key := range keys[:50] {
 		require.NotContains(t, err.Error(), secretValue(key), "a resolved value never reaches the error")
 	}
+
 	require.NotContains(t, logs.String(), "S3CR3T", "nothing at warn level carries a secret value")
 	require.NotContains(t, logs.String(), "app:", "nothing at warn level names a secret")
 }
@@ -113,13 +122,16 @@ func TestIntegration_ExpandFailOpen(t *testing.T) {
 	t.Parallel()
 
 	doc, keys := itDocument(itPlaceholders)
+
 	failing := map[string]bool{}
 	for i := 0; i < len(keys); i += 7 {
 		failing[keys[i]] = true
 	}
+
 	doc += "unknown: $__secret{other:missing}\n"
 
 	var logs bytes.Buffer
+
 	logger := slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelWarn}))
 	r := &itResolver{failing: failing}
 	out, err := secrets.New(r, secrets.WithFailOnError(false), secrets.WithLogger(logger)).Expand(t.Context(), doc)
@@ -132,8 +144,10 @@ func TestIntegration_ExpandFailOpen(t *testing.T) {
 		if failing[key] {
 			want = ""
 		}
+
 		require.Contains(t, out, fmt.Sprintf("field%d: prefix-%s-suffix\n", i, want))
 	}
+
 	require.Contains(t, out, "unknown: \n")
 	require.NotContains(t, logs.String(), "S3CR3T")
 	require.NotContains(t, logs.String(), "app:")
@@ -150,18 +164,23 @@ func TestIntegration_ExpandConcurrent(t *testing.T) {
 	require.NoError(t, err)
 
 	var wg sync.WaitGroup
+
 	errs := make(chan error, 8)
+
 	for range 8 {
 		wg.Go(func() {
 			got, err := e.Expand(t.Context(), doc)
 			if err == nil && got != want {
 				err = errors.New("concurrent expansion differs")
 			}
+
 			errs <- err
 		})
 	}
+
 	wg.Wait()
 	close(errs)
+
 	for err := range errs {
 		require.NoError(t, err)
 	}

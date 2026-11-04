@@ -17,15 +17,19 @@ func FuzzParse(f *testing.F) {
 	for _, s := range []string{"A=1", "A__0=x", "A__999999999=x", "A=x\nA__B=y", "A='literal'"} {
 		f.Add(s)
 	}
+
 	f.Fuzz(func(t *testing.T, s string) {
 		t.Parallel()
+
 		if len(s) > 8192 {
 			return
 		}
+
 		p := &conversion.Parser{}
 		a, e1 := p.Parse(strings.NewReader(s), false)
 		b, e2 := p.Parse(strings.NewReader(s), false)
 		require.Equal(t, e1 == nil, e2 == nil)
+
 		if e1 == nil {
 			require.Equal(t, (&conversion.Env{}).Render(a, nil, false), (&conversion.Env{}).Render(b, nil, false))
 		}

@@ -37,6 +37,7 @@ var includeRegex = regexp.MustCompile(`^(\s*)` + regexp.QuoteMeta(includeDirecti
 func (b *Backend) Preprocess(content, currentDir, rootDir string, maxBytes int64) (string, error) {
 	root := &includeRoot{dir: rootDir, given: rootDir, owned: true}
 	defer root.close()
+
 	return processIncludes(content, currentDir, 0, map[string]bool{}, root, maxBytes)
 }
 
@@ -69,19 +70,24 @@ func (r *includeRoot) pin() error {
 	if r.root != nil {
 		return nil
 	}
+
 	root, err := files.OpenRootDir(r.dir)
 	if err != nil {
 		return err
 	}
+
 	resolved, err := filepath.EvalSymlinks(r.dir)
 	if err == nil {
 		err = sameDir(root, resolved)
 	}
+
 	if err != nil {
 		_ = root.Close()
 		return err
 	}
+
 	r.root, r.dir = root, resolved
+
 	return nil
 }
 
@@ -91,13 +97,16 @@ func sameDir(root *os.Root, path string) error {
 	if err != nil {
 		return err
 	}
+
 	current, err := os.Stat(path)
 	if err != nil {
 		return err
 	}
+
 	if !os.SameFile(held, current) {
 		return fmt.Errorf("security error: config root %s changed while it was opened", path)
 	}
+
 	return nil
 }
 
@@ -143,6 +152,7 @@ func processIncludes(content string, currentDir string, depth int, visited map[s
 			// Apply indentation to included content
 			indentedContent := applyIndentation(included, matches[1])
 			result.WriteString(indentedContent)
+
 			if !strings.HasSuffix(indentedContent, "\n") {
 				result.WriteString("\n")
 			}
@@ -256,7 +266,9 @@ func resolveInclude(rawPath, currentDir string, root *includeRoot) (includePath,
 	if err = root.pin(); err != nil {
 		return includePath, "", "", coreerrs.WrapOperation(err, "open config root for "+includePath)
 	}
+
 	realRootDir := root.dir
+
 	realIncludePath, evalErr := filepath.EvalSymlinks(includePath)
 	if evalErr != nil {
 		// A missing include outside the root, as written, is
@@ -264,6 +276,7 @@ func resolveInclude(rawPath, currentDir string, root *includeRoot) (includePath,
 		if outsideDir(root.dir, includePath) && outsideDir(root.given, includePath) {
 			return includePath, "", "", fmt.Errorf("security error: attempt to include file outside of config root: %s", includePath)
 		}
+
 		return includePath, "", "", coreerrs.WrapOperation(evalErr, "read included file "+includePath)
 	}
 
@@ -271,6 +284,7 @@ func resolveInclude(rawPath, currentDir string, root *includeRoot) (includePath,
 	if outsideDir(realRootDir, realIncludePath) {
 		return includePath, "", "", fmt.Errorf("security error: attempt to include file outside of config root: %s", includePath)
 	}
+
 	if rel, err = filepath.Rel(realRootDir, realIncludePath); err != nil {
 		return includePath, "", "", fmt.Errorf("security error: attempt to include file outside of config root: %s", includePath)
 	}
@@ -297,10 +311,12 @@ func readInclude(root *includeRoot, rel string, maxBytes int64) ([]byte, error) 
 	if err != nil {
 		return nil, err
 	}
+
 	if maxBytes <= 0 {
 		defer func() { _ = f.Close() }()
 		return io.ReadAll(f)
 	}
+
 	limited := coreio.NewLimitedReadCloser(f, maxBytes)
 	defer func() { _ = limited.Close() }()
 

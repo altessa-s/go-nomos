@@ -432,6 +432,7 @@ func TestLoad_NumericMapKeyInMapOfSlices(t *testing.T) {
 		if strict {
 			opts = append(opts, loader.WithStrict())
 		}
+
 		cfg := &numericMapKeyConfig{}
 		_, err := loader.New(nil, opts...).Load(cfg)
 		require.NoError(t, err)

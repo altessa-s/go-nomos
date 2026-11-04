@@ -76,6 +76,7 @@ func TestLoad_BackendParity(t *testing.T) {
 			// decide the values.
 			fromYAML := &parityConfig{}
 			require.NoError(t, loadFiles(t, &yaml3.Backend{}, fromYAML, map[string]string{"a.yaml": tc.yaml}, loader.WithSkipEnv()))
+
 			fromTOML := &parityConfig{}
 			require.NoError(t, loadFiles(t, &toml.Backend{}, fromTOML, map[string]string{"a.toml": tc.toml}, loader.WithSkipEnv()))
 			require.Equal(t, fromYAML, fromTOML)

@@ -34,13 +34,16 @@ func TestBackend_DecodeKeys_Refused(t *testing.T) {
 
 	root, err := (&toml.Backend{}).DecodeKeys(strings.NewReader("table = {a = 1}\narr = [1, 2]\ns = \"x\"\n"))
 	require.NoError(t, err)
+
 	type doc struct {
 		Table map[string]int `toml:"table"`
 		Arr   []int          `toml:"arr"`
 		S     string         `toml:"s"`
 	}
+
 	fs, ok := root.Fields(reflect.TypeFor[doc]())
 	require.True(t, ok)
+
 	table, arr, s := fs[0], fs[1], fs[2]
 
 	tests := []struct {
@@ -63,6 +66,7 @@ func TestBackend_DecodeKeys_Refused(t *testing.T) {
 	es, ok := table.Entries(reflect.TypeFor[map[string]int]())
 	require.True(t, ok)
 	require.Contains(t, es, "a")
+
 	el, ok := arr.Elems(reflect.TypeFor[[]int]())
 	require.True(t, ok)
 	require.Len(t, el, 2)
@@ -73,6 +77,7 @@ func TestBackend_DecodeKeys_InvalidDocument(t *testing.T) {
 	t.Parallel()
 
 	var kd backend.KeyDecoder = &toml.Backend{}
+
 	_, err := kd.DecodeKeys(strings.NewReader("a = \n"))
 	require.Error(t, err)
 }

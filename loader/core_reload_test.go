@@ -26,6 +26,7 @@ func (v *reloadValidator) Validate() error {
 	if v.Fail {
 		return fmt.Errorf("token %q: %w", v.Token, errRejected)
 	}
+
 	return nil
 }
 
@@ -34,6 +35,7 @@ func (v *reloadValidator) Validate() error {
 // are withheld, whether the earlier load succeeded or failed.
 func TestReloadKeepsSecretErrorsWithheld(t *testing.T) {
 	t.Parallel()
+
 	for _, tc := range []struct {
 		name  string
 		first string
@@ -45,6 +47,7 @@ func TestReloadKeepsSecretErrorsWithheld(t *testing.T) {
 			t.Parallel()
 			path := filepath.Join(t.TempDir(), "config.yaml")
 			require.NoError(t, os.WriteFile(path, []byte(tc.first), 0o600))
+
 			manager := newCountingManager(map[string]string{"app:token": leakySecret})
 			l := loader.New(nil, loader.WithPath(path), loader.WithSkipEnv(), loader.WithSecretResolver(manager))
 			cfg := &reloadValidator{}

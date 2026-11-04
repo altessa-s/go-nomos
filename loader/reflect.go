@@ -51,6 +51,7 @@ func wrapError(baseErr error, msg string, cause error) error {
 	if cause != nil {
 		return coreerrs.Wrapf(baseErr, msg+": %v", withoutInput(cause))
 	}
+
 	return coreerrs.Wrap(baseErr, msg)
 }
 
@@ -60,6 +61,7 @@ func withoutInput(err error) error {
 	if numErr, ok := errors.AsType[*strconv.NumError](err); ok {
 		return fmt.Errorf("strconv.%s: %w", numErr.Func, numErr.Err)
 	}
+
 	return err
 }
 
@@ -107,6 +109,7 @@ func (f *field) pathSteps() []pathStep {
 	if f.steps != nil {
 		return f.steps
 	}
+
 	return indexSteps(nil, f.index)
 }
 
@@ -131,6 +134,7 @@ func defaultTagValue(value string) string {
 	if v, ok := strings.CutSuffix(value, ","+skipZeroTag); ok {
 		return v
 	}
+
 	return value
 }
 
@@ -143,13 +147,17 @@ func preparePointerField(fieldValue reflect.Value, isDefaultValue bool) (prepare
 			if isDefaultValue {
 				return reflect.Value{}, reflect.Value{} // Return invalid value to signal skip
 			}
+
 			fieldValue.Set(reflect.New(fieldValue.Type().Elem()))
+
 			if !allocated.IsValid() {
 				allocated = fieldValue
 			}
 		}
+
 		fieldValue = fieldValue.Elem()
 	}
+
 	return fieldValue, allocated
 }
 
@@ -170,6 +178,7 @@ func set(fieldValue reflect.Value, defaultValue string, isDefaultValue, replaceD
 	if !assigned && allocated.IsValid() {
 		allocated.SetZero()
 	}
+
 	return assigned, err
 }
 
@@ -204,6 +213,7 @@ func setPrepared(fieldValue reflect.Value, defaultValue string, isDefaultValue, 
 		if strict {
 			return false, fmt.Errorf("%w: kind %s", ErrUnsupportedFieldType, fieldValue.Kind())
 		}
+
 		return false, nil
 	}
 }
@@ -220,6 +230,7 @@ func setInterface(fieldValue reflect.Value, defaultValue string) bool {
 
 	// This is any - safe to assign string or []byte
 	fieldValue.Set(reflect.ValueOf([]byte(defaultValue)))
+
 	return true
 }
 
@@ -230,7 +241,9 @@ func setString(fieldValue reflect.Value, defaultValue string, isDefaultValue, re
 	if isDefaultValue && (fieldValue.Len() != 0 || !replaceDefaultValue) {
 		return false
 	}
+
 	fieldValue.SetString(defaultValue)
+
 	return true
 }
 
@@ -250,7 +263,9 @@ func setBool(fieldValue reflect.Value, defaultValue string, isDefaultValue, repl
 	if isDefaultValue && (fieldValue.Bool() || !replaceDefaultValue) {
 		return false, nil
 	}
+
 	fieldValue.SetBool(boolValue)
+
 	return true, nil
 }
 
@@ -284,7 +299,9 @@ func setSlice(fieldValue reflect.Value, defaultValue string, isDefaultValue, rep
 	// and its double-quoted elements are unquoted; [] is an empty list.
 	trimmedValue := strings.TrimSpace(defaultValue)
 	bracketed := strings.HasPrefix(trimmedValue, "[") && strings.HasSuffix(trimmedValue, "]")
+
 	var vals []string
+
 	switch {
 	case !bracketed:
 		vals = strings.Split(trimmedValue, commaSeparator)
@@ -302,6 +319,7 @@ func setSlice(fieldValue reflect.Value, defaultValue string, isDefaultValue, rep
 		if err != nil {
 			return false, wrapError(ErrSliceItemInvalid, fmt.Sprintf("incorrect slice item %d", i), err)
 		}
+
 		if _, err := set(slice.Index(i), trimmedVal, isDefaultValue, replaceDefaultValue, strict); err != nil {
 			return false, wrapError(ErrSliceItemInvalid, fmt.Sprintf("incorrect slice item %d", i), err)
 		}
@@ -324,10 +342,12 @@ func listElement(val string, bracketed bool) (string, error) {
 	if bracketed && strings.HasPrefix(val, `"`) {
 		return strconv.Unquote(val)
 	}
+
 	if len(val) >= 2 && val[0] == '"' && val[len(val)-1] == '"' {
 		// Strip surrounding quotes from JSON-style string values
 		return val[1 : len(val)-1], nil
 	}
+
 	return val, nil
 }
 
@@ -337,8 +357,10 @@ func listElement(val string, bracketed bool) (string, error) {
 // string or a nested bracket is left open, or a bracket closes none.
 func splitListElements(list string) ([]string, error) {
 	var elements []string
+
 	depth, start := 0, 0
 	inQuote, escaped := false, false
+
 	for i := range len(list) {
 		c := list[i]
 		switch {
@@ -361,9 +383,11 @@ func splitListElements(list string) ([]string, error) {
 			start = i + 1
 		}
 	}
+
 	if inQuote || depth != 0 {
 		return nil, errMalformedList
 	}
+
 	return append(elements, list[start:]), nil
 }
 
@@ -375,6 +399,7 @@ func elementsRecurse(t reflect.Type) bool {
 		if e == t {
 			return true
 		}
+
 		seen[e] = true
 		switch e.Kind() {
 		case reflect.Pointer, reflect.Slice, reflect.Array, reflect.Map:
@@ -382,6 +407,7 @@ func elementsRecurse(t reflect.Type) bool {
 			return false
 		}
 	}
+
 	return false
 }
 
@@ -487,7 +513,9 @@ func setIntValue(fieldValue reflect.Value, defaultValue string, isDefaultValue, 
 	if isDefaultValue && (parseStringInt(reflect.Indirect(fieldValue)) != 0 || !replaceDefaultValue) {
 		return false, nil
 	}
+
 	fieldValue.SetInt(defaultIntValue)
+
 	return true, nil
 }
 
@@ -506,7 +534,9 @@ func setUintValue(fieldValue reflect.Value, defaultValue string, isDefaultValue,
 	if isDefaultValue && (fieldValue.Uint() != 0 || !replaceDefaultValue) {
 		return false, nil
 	}
+
 	fieldValue.SetUint(uintNumber)
+
 	return true, nil
 }
 
@@ -525,7 +555,9 @@ func setFloatValue(fieldValue reflect.Value, defaultValue string, isDefaultValue
 	if isDefaultValue && (math.Float64bits(fieldValue.Float()) != 0 || !replaceDefaultValue) {
 		return false, nil
 	}
+
 	fieldValue.SetFloat(floatNumber)
+
 	return true, nil
 }
 
@@ -558,6 +590,7 @@ func (fs fields) All() iter.Seq[*field] {
 func structFields(s any) fields {
 	structValue := reflect.ValueOf(s)
 	structType := reflect.TypeOf(s)
+
 	return fieldsList(structValue, structType, nil, nil, make([]reflect.Type, 0, fieldsListDepth))
 }
 

@@ -16,6 +16,7 @@ import (
 
 func TestUncommentYAMLWithSpecialValues(t *testing.T) {
 	t.Parallel()
+
 	conv := NewConfigToEnvConverter()
 
 	input := `# Logger config
@@ -88,6 +89,7 @@ func TestLoadAndMergeParallelReturnsErrorOnEmpty(t *testing.T) {
 	t.Parallel()
 	// Create a temp directory with enough empty YAML files to trigger parallel processing
 	dir := t.TempDir()
+
 	const fileCount = 6
 	for i := range fileCount {
 		name := filepath.Join(dir, "config"+string(rune('a'+i))+".yaml")
@@ -102,6 +104,7 @@ func TestLoadAndMergeParallelReturnsErrorOnEmpty(t *testing.T) {
 
 func TestConvertDataWithCommentsTemplateYAML(t *testing.T) {
 	t.Parallel()
+
 	conv := NewConfigToEnvConverter()
 	data := map[string]any{
 		"logger": map[string]any{
@@ -137,6 +140,7 @@ func TestFullEndToEndDirectoryConversion(t *testing.T) {
 #  port: 5432
 #  name: mydb
 `
+
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "server.yaml"), []byte(file1), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "database.yaml"), []byte(file2), 0o644))
 

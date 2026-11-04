@@ -32,6 +32,7 @@ type indexConfig struct {
 // address fails the load instead of panicking or allocating without bound.
 func TestLoad_EnvSliceIndexRejected(t *testing.T) {
 	maxInt := strconv.Itoa(math.MaxInt)
+
 	tests := []struct {
 		name string
 		envs map[string]string
@@ -73,6 +74,7 @@ func TestLoad_EnvSliceIndexLimit(t *testing.T) {
 	require.Equal(t, "i3", cfg.Items[3].Name)
 
 	t.Setenv("ENVIDX_HOSTS__2", "h2")
+
 	_, err = loader.New(nil, loader.WithEnvPrefix("ENVIDX"), loader.WithMaxEnvSliceLen(2)).Load(&indexConfig{})
 	require.ErrorIs(t, err, loader.ErrEnvIndexOutOfRange)
 }

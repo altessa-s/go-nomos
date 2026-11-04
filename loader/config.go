@@ -172,11 +172,13 @@ func (cf *Config) LoadContext(ctx context.Context, conf any) (any, error) {
 	if err := assertStructPointer(conf); err != nil {
 		return nil, err
 	}
+
 	select {
 	case cf.loadSlot <- struct{}{}:
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
+
 	defer func() { <-cf.loadSlot }()
 
 	// The context may have ended while this load waited.
@@ -186,17 +188,21 @@ func (cf *Config) LoadContext(ctx context.Context, conf any) (any, error) {
 
 	cf.smx.Lock()
 	defer cf.smx.Unlock()
+
 	rollback := captureConfig(cf.published)
+
 	committed := false
 	defer func() {
 		if !committed {
 			rollback()
 		}
 	}()
+
 	destination := reflect.ValueOf(conf)
 	if destination.IsNil() {
 		destination = reflect.New(destination.Type().Elem())
 	}
+
 	work := &loadState{
 		options: cf.options, backend: cf.backend,
 		allowExts: make(map[string]struct{}), envNames: cf.envNames,
@@ -204,16 +210,20 @@ func (cf *Config) LoadContext(ctx context.Context, conf any) (any, error) {
 		secretsResolved: cf.secretsResolved,
 	}
 	err := work.load(ctx)
+
 	cf.secretsResolved = work.secretsResolved
 	if err != nil {
 		return nil, work.withholdError(err)
 	}
+
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
+
 	cf.envNames = work.envNames
 	cf.published = destination.Interface()
 	committed = true
+
 	return cf.published, nil
 }
 
@@ -240,18 +250,22 @@ func (cf *loadState) load(ctx context.Context) error {
 	// collection on every load so files removed since the last one are gone.
 	if cf.options.path != "" {
 		cf.files = newFiles()
+
 		err = cf.loadFiles()
 		if err == nil {
 			err = cf.loadFileContents(ctx)
 		}
+
 		if cf.root != nil {
 			err = errors.Join(err, cf.root.Close())
 			cf.root, cf.rootDir = nil, ""
 		}
+
 		if err != nil {
 			return err
 		}
 	}
+
 	if cf.present == nil {
 		cf.present = &presence{}
 	}
@@ -261,10 +275,12 @@ func (cf *loadState) load(ctx context.Context) error {
 	if err = ctx.Err(); err != nil {
 		return err
 	}
+
 	cf.fields = structFields(cf.conf)
 	if err = cf.loadEnvs(ctx); err != nil {
 		return fmt.Errorf("%w: %w", ErrBindEnv, err)
 	}
+
 	if err = ctx.Err(); err != nil {
 		return err
 	}
@@ -272,9 +288,11 @@ func (cf *loadState) load(ctx context.Context) error {
 	if err = cf.applyDefaults(ctx); err != nil {
 		return fmt.Errorf("%w: %w", ErrBindDefaults, err)
 	}
+
 	if err = ctx.Err(); err != nil {
 		return err
 	}
+
 	cf.fields = structFields(cf.conf)
 
 	if cv, ok := cf.conf.(Validator); ok {
@@ -317,6 +335,7 @@ func (cf *loadState) loadFileContents(ctx context.Context) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
+
 		if err := cf.readContent(f); err != nil {
 			return err
 		}
@@ -335,8 +354,10 @@ func (cf *loadState) loadFileContents(ctx context.Context) error {
 		if err := cf.decodeContent(f, cf.conf); err != nil {
 			return err
 		}
+
 		cf.present = mergePresence(cf.present, bindPresence(rootType, f.keys), rootType, cf.reusesSlices())
 	}
+
 	return nil
 }
 
@@ -372,6 +393,7 @@ func (cf *loadState) loadFiles() (err error) {
 	if err = cf.openRoot(filepath.Dir(basePath)); err != nil {
 		return err
 	}
+
 	return cf.loadFile(basePath, "", pathInfo)
 }
 
@@ -382,12 +404,15 @@ func (cf *loadState) openRoot(dir string) error {
 	if err != nil {
 		return err
 	}
+
 	resolved, err := filepath.EvalSymlinks(dir)
 	if err != nil {
 		_ = root.Close()
 		return err
 	}
+
 	cf.root, cf.rootDir = root, resolved
+
 	return nil
 }
 
@@ -416,6 +441,7 @@ func (cf *loadState) loadFilesFromDir(basePath string) error {
 		}
 
 		entryPath := path.Join(basePath, entry.Name())
+
 		rel, err := confineToRoot(entryPath, basePath)
 		if err != nil {
 			return err
@@ -445,6 +471,7 @@ func confineToRoot(path, root string) (string, error) {
 		// our sentinel so the caller can react uniformly.
 		return "", fmt.Errorf("%w: %s: %w", ErrPathOutsideRoot, path, err)
 	}
+
 	resolvedRoot, err := filepath.EvalSymlinks(root)
 	if err != nil {
 		return "", fmt.Errorf("%w: %s: %w", ErrPathOutsideRoot, root, err)
@@ -454,9 +481,11 @@ func confineToRoot(path, root string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("%w: %s: %w", ErrPathOutsideRoot, path, err)
 	}
+
 	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 		return "", fmt.Errorf("%w: %s -> %s", ErrPathOutsideRoot, path, resolvedPath)
 	}
+
 	return rel, nil
 }
 

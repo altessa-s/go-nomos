@@ -34,10 +34,12 @@ func (c *copyConfig) Default() {
 		if inner, ok := m["inner"].(map[string]any); ok {
 			inner["level"] = "mutated"
 		}
+
 		if list, ok := m["list"].([]any); ok && len(list) > 0 {
 			list[0] = "mutated"
 		}
 	}
+
 	c.Pair = [2]string{"default-a", "default-b"}
 	c.Leaf = copyLeaf{Name: "default"}
 	c.Opt = &copyLeaf{Name: "default"}
@@ -104,6 +106,7 @@ func TestLoad_DefaulterCannotMutateExplicitValues(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
+
 			cfg := &copyConfig{}
 			require.NoError(t, loadFiles(t, nil, cfg, map[string]string{"a.yaml": tc.doc}, loader.WithSkipEnv()))
 			tc.check(t, cfg)
@@ -122,6 +125,7 @@ type cyclicName struct {
 func (c *cyclicName) UnmarshalText(b []byte) error {
 	c.Name = string(b)
 	c.Self = c
+
 	return nil
 }
 
@@ -134,6 +138,7 @@ func (c *cyclicConfig) Default() {
 	if c.Cycle.Self != nil {
 		c.Cycle.Self.Name = "mutated"
 	}
+
 	c.Cycle.Name = "mutated"
 }
 
@@ -201,6 +206,7 @@ func TestLoad_UnsignedDefaultErrors(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
+
 			_, err := loader.New(nil, loader.WithSkipEnv()).Load(tc.cfg)
 			require.ErrorIs(t, err, loader.ErrBindDefaults)
 			require.ErrorIs(t, err, loader.ErrUintParse)

@@ -46,6 +46,7 @@ func TestBackend_CommentPaths(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
+
 			got, err := (&yaml3.Backend{}).CommentPaths([]byte(tc.doc))
 			require.NoError(t, err)
 			require.Equal(t, tc.want, got)
@@ -79,6 +80,7 @@ func TestBackend_CommentPaths_KeyComments(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
+
 			got, err := (&yaml3.Backend{}).CommentPaths([]byte(tc.doc))
 			require.NoError(t, err)
 			require.Equal(t, tc.want, got)

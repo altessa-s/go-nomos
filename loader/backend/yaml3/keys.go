@@ -41,9 +41,11 @@ func (b *Backend) DecodeKeys(reader io.Reader) (backend.KeyNode, error) {
 	if err := yaml.NewDecoder(reader).Decode(&doc); err != nil && !errors.Is(err, io.EOF) {
 		return nil, err
 	}
+
 	if err := checkMappings(&doc); err != nil {
 		return nil, err
 	}
+
 	return &keyNode{node: &doc}, nil
 }
 
@@ -68,6 +70,7 @@ func (c *aliasChain) contains(anchor *yaml.Node) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -82,18 +85,21 @@ func (k *keyNode) target() (*yaml.Node, *aliasChain, bool) {
 			if len(n.Content) == 0 {
 				return nil, chain, true
 			}
+
 			n = n.Content[0]
 		case yaml.AliasNode:
 			// Decoding copies alias nodes; their anchored targets are shared.
 			if chain.contains(n.Alias) {
 				return nil, chain, false
 			}
+
 			chain = &aliasChain{anchor: n.Alias, next: chain}
 			n = n.Alias
 		default:
 			return n, chain, true
 		}
 	}
+
 	return nil, chain, true
 }
 
@@ -111,6 +117,7 @@ func (k *keyNode) decode(out any) (*aliasChain, bool) {
 	if !ok || n == nil {
 		return nil, false
 	}
+
 	return chain, n.Decode(out) == nil
 }
 
@@ -122,11 +129,14 @@ func (k *keyNode) Fields(t reflect.Type) (map[int]backend.KeyNode, bool) {
 	if customDecoded(t) {
 		return nil, false
 	}
+
 	info, err := structKeysOf(t)
 	if err != nil {
 		return nil, false
 	}
+
 	var m map[string]yaml.Node
+
 	chain, ok := k.decode(&m)
 	if !ok {
 		return nil, false
@@ -139,15 +149,18 @@ func (k *keyNode) Fields(t reflect.Type) (map[int]backend.KeyNode, bool) {
 			insertField(out, path, node)
 			continue
 		}
+
 		if info.inlineMap >= 0 {
 			im, _ := out[info.inlineMap].(*entriesNode)
 			if im == nil {
 				im = &entriesNode{entries: map[any]backend.KeyNode{}}
 				out[info.inlineMap] = im
 			}
+
 			im.entries[key] = node
 		}
 	}
+
 	return out, true
 }
 
@@ -156,7 +169,9 @@ func (k *keyNode) Entries(t reflect.Type) (map[any]backend.KeyNode, bool) {
 	if customDecoded(t) {
 		return nil, false
 	}
+
 	m := reflect.New(reflect.MapOf(t.Key(), nodeType))
+
 	chain, ok := k.decode(m.Interface())
 	if !ok {
 		return nil, false
@@ -167,6 +182,7 @@ func (k *keyNode) Entries(t reflect.Type) (map[any]backend.KeyNode, bool) {
 		n, _ := reflect.TypeAssert[yaml.Node](it.Value())
 		out[it.Key().Interface()] = &keyNode{node: &n, aliases: chain}
 	}
+
 	return out, true
 }
 
@@ -176,21 +192,26 @@ func (k *keyNode) Elems(t reflect.Type) ([]backend.KeyNode, bool) {
 	if customDecoded(t) {
 		return nil, false
 	}
+
 	var s []yaml.Node
+
 	chain, ok := k.decode(&s)
 	if !ok {
 		return nil, false
 	}
 
 	keepNull := nullable(t.Elem().Kind())
+
 	out := make([]backend.KeyNode, 0, len(s))
 	for i := range s {
 		n := &keyNode{node: &s[i], aliases: chain}
 		if !keepNull && n.IsNull() {
 			continue
 		}
+
 		out = append(out, n)
 	}
+
 	return out, true
 }
 
@@ -219,11 +240,13 @@ func insertField(out map[int]backend.KeyNode, path []int, node backend.KeyNode) 
 		out[path[0]] = node
 		return
 	}
+
 	in, _ := out[path[0]].(*fieldsNode)
 	if in == nil {
 		in = &fieldsNode{fields: map[int]backend.KeyNode{}}
 		out[path[0]] = in
 	}
+
 	insertField(in.fields, path[1:], node)
 }
 
@@ -284,8 +307,10 @@ func structKeysOf(t reflect.Type) (*structKeys, error) {
 		res, _ := r.(structKeysResult)
 		return res.keys, res.err
 	}
+
 	keys, err := buildStructKeys(t, map[reflect.Type]bool{})
 	structKeysCache.Store(t, structKeysResult{keys: keys, err: err})
+
 	return keys, err
 }
 
@@ -297,32 +322,40 @@ func buildStructKeys(t reflect.Type, visiting map[reflect.Type]bool) (*structKey
 	if visiting[t] {
 		return nil, errBadInline
 	}
+
 	visiting[t] = true
 	defer delete(visiting, t)
 
 	sk := &structKeys{fields: map[string][]int{}, inlineMap: -1}
+
 	for i := range t.NumField() {
 		sf := t.Field(i)
 		if sf.PkgPath != "" && !sf.Anonymous {
 			continue
 		}
+
 		name, inline, skip := fieldTag(sf)
 		if skip {
 			continue
 		}
+
 		if !inline {
 			if name == "" {
 				name = strings.ToLower(sf.Name)
 			}
+
 			if err := addKey(sk, name, []int{i}); err != nil {
 				return nil, err
 			}
+
 			continue
 		}
+
 		if err := addInlineKeys(sk, i, sf.Type, visiting); err != nil {
 			return nil, err
 		}
 	}
+
 	return sk, nil
 }
 
@@ -334,13 +367,16 @@ func fieldTag(sf reflect.StructField) (name string, inline, skip bool) {
 	if tag == "" && !strings.Contains(string(sf.Tag), ":") {
 		tag = string(sf.Tag)
 	}
+
 	if tag == "-" {
 		return "", false, true
 	}
+
 	name, flags, _ := strings.Cut(tag, ",")
 	for flag := range strings.SplitSeq(flags, ",") {
 		inline = inline || flag == "inline"
 	}
+
 	return name, inline, false
 }
 
@@ -352,24 +388,30 @@ func addInlineKeys(sk *structKeys, i int, ft reflect.Type, visiting map[reflect.
 		sk.inlineMap = i
 		return nil
 	}
+
 	for ft.Kind() == reflect.Pointer {
 		ft = ft.Elem()
 	}
+
 	if ft.Kind() != reflect.Struct {
 		return errBadInline
 	}
+
 	if reflect.PointerTo(ft).Implements(unmarshalerType) {
 		return nil
 	}
+
 	inner, err := buildStructKeys(ft, visiting)
 	if err != nil {
 		return err
 	}
+
 	for key, path := range inner.fields {
 		if err := addKey(sk, key, append([]int{i}, path...)); err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -379,7 +421,9 @@ func addKey(sk *structKeys, key string, path []int) error {
 	if _, dup := sk.fields[key]; dup {
 		return errDuplicateKey
 	}
+
 	sk.fields[key] = path
+
 	return nil
 }
 

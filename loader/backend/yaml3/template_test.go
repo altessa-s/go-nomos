@@ -12,6 +12,7 @@ import (
 
 func TestQuoteYAMLSpecialValues(t *testing.T) {
 	t.Parallel()
+
 	conv := &Backend{}
 
 	tests := []struct {
@@ -79,6 +80,7 @@ func TestQuoteYAMLSpecialValues(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+
 			result := conv.quoteYAMLSpecialValues(tt.input)
 			require.Equal(t, tt.expected, result)
 		})
@@ -87,6 +89,7 @@ func TestQuoteYAMLSpecialValues(t *testing.T) {
 
 func TestProcessLineQuotesSpecialValues(t *testing.T) {
 	t.Parallel()
+
 	conv := &Backend{}
 
 	tests := []struct {
@@ -114,6 +117,7 @@ func TestProcessLineQuotesSpecialValues(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+
 			result := conv.processLine(tt.input)
 			require.Equal(t, tt.expected, result)
 		})

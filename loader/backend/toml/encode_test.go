@@ -20,6 +20,7 @@ func TestBackend_ReusesSliceElements(t *testing.T) {
 	t.Parallel()
 
 	var b backend.Backend = &toml.Backend{}
+
 	reuse, ok := b.(backend.SliceReuseDecoder)
 	require.True(t, ok)
 	require.True(t, reuse.ReusesSliceElements())
@@ -30,6 +31,7 @@ func TestBackend_ReusesSliceElements(t *testing.T) {
 		A int `toml:"a"`
 		B int `toml:"b"`
 	}
+
 	var cfg struct {
 		Items []item `toml:"items"`
 	}
@@ -45,12 +47,14 @@ func TestBackend_Encode(t *testing.T) {
 		Host string `toml:"host"`
 		Port int    `toml:"port"`
 	}
+
 	type config struct {
 		Name    string   `toml:"name"`
 		Tags    []string `toml:"tags"`
 		Server  server   `toml:"server"`
 		Servers []server `toml:"servers"`
 	}
+
 	in := config{
 		Name:    "svc",
 		Tags:    []string{"a", "b"},
@@ -59,6 +63,7 @@ func TestBackend_Encode(t *testing.T) {
 	}
 
 	b := &toml.Backend{}
+
 	var buf bytes.Buffer
 	require.NoError(t, b.Encode(&buf, in))
 	require.Contains(t, buf.String(), "[server]")
@@ -97,6 +102,7 @@ func TestBackend_DecodeKeys_UnexportedEmbedding(t *testing.T) {
 
 	root, err := (&toml.Backend{}).DecodeKeys(strings.NewReader("port = 0\ne = 1\n"))
 	require.NoError(t, err)
+
 	fs, ok := root.Fields(reflect.TypeFor[hiddenConfig]())
 	require.True(t, ok)
 	require.Contains(t, fs, 1, "the field named like the synthetic name keeps its key")

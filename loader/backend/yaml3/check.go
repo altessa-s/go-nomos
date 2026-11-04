@@ -58,16 +58,20 @@ func readChecked(reader io.Reader) (io.Reader, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	var doc yaml.Node
 	if err := yaml.NewDecoder(bytes.NewReader(data)).Decode(&doc); err != nil {
 		if errors.Is(err, io.EOF) {
 			return bytes.NewReader(data), nil
 		}
+
 		return nil, err
 	}
+
 	if err := checkMappings(&doc); err != nil {
 		return nil, err
 	}
+
 	return bytes.NewReader(data), nil
 }
 
@@ -77,13 +81,16 @@ func readChecked(reader io.Reader) (io.Reader, error) {
 // maxKeyComparisons key pairs.
 func checkMappings(doc *yaml.Node) error {
 	g := &mappingGuard{costs: make(map[*yaml.Node]int64), inProgress: make(map[*yaml.Node]bool)}
+
 	cost, err := g.cost(doc)
 	if err != nil {
 		return err
 	}
+
 	if cost > maxKeyComparisons {
 		return errExcessiveMappingWork
 	}
+
 	return nil
 }
 
@@ -106,40 +113,51 @@ func (g *mappingGuard) cost(n *yaml.Node) (int64, error) {
 	if n == nil {
 		return 0, nil
 	}
+
 	if c, ok := g.costs[n]; ok {
 		return c, nil
 	}
+
 	if g.inProgress[n] {
 		return 0, nil
 	}
+
 	g.inProgress[n] = true
 	defer delete(g.inProgress, n)
 
 	var total int64
+
 	if n.Kind == yaml.MappingNode {
 		pairs := int64(len(n.Content) / nodesPerEntry)
 		total = min(pairs*(pairs-1)/nodesPerEntry, expansionCap)
 		seen := make(map[mappingKey]struct{}, pairs)
+
 		for i := 0; i+1 < len(n.Content); i += nodesPerEntry {
 			key := mappingKey{kind: n.Content[i].Kind, value: n.Content[i].Value}
 			if _, dup := seen[key]; dup {
 				return 0, errDuplicateMappingKey
 			}
+
 			seen[key] = struct{}{}
 		}
 	}
+
 	children := n.Content
 	if n.Kind == yaml.AliasNode {
 		children = []*yaml.Node{n.Alias}
 	}
+
 	for _, child := range children {
 		c, err := g.cost(child)
 		if err != nil {
 			return 0, err
 		}
+
 		total = min(total+c, expansionCap)
 	}
+
 	g.costs[n] = total
+
 	return total, nil
 }
 
@@ -155,8 +173,10 @@ func (b *Backend) CheckDocument(content string) error {
 		if errors.Is(err, io.EOF) {
 			return nil
 		}
+
 		return err
 	}
+
 	if err := checkMappings(&doc); err != nil {
 		return err
 	}
@@ -165,10 +185,12 @@ func (b *Backend) CheckDocument(content string) error {
 	if err := c.walk(&doc); err != nil {
 		return err
 	}
+
 	if c.aliased > minCheckedAliases && c.decodes > minCheckedDecodes &&
 		float64(c.aliased)/float64(c.decodes) > allowedAliasRatio(c.decodes) {
 		return errExcessiveAliasing
 	}
+
 	return nil
 }
 
@@ -188,28 +210,36 @@ func (c *aliasCounter) size(n *yaml.Node) (int64, error) {
 	if n == nil {
 		return 0, nil
 	}
+
 	if s, ok := c.sizes[n]; ok {
 		return s, nil
 	}
+
 	if c.inProgress[n] {
 		return 0, errAliasCycle
 	}
+
 	c.inProgress[n] = true
 	defer delete(c.inProgress, n)
 
 	total := int64(1)
+
 	children := n.Content
 	if n.Kind == yaml.AliasNode {
 		children = []*yaml.Node{n.Alias}
 	}
+
 	for _, child := range children {
 		s, err := c.size(child)
 		if err != nil {
 			return 0, err
 		}
+
 		total = min(total+s, expansionCap)
 	}
+
 	c.sizes[n] = total
+
 	return total, nil
 }
 
@@ -218,21 +248,26 @@ func (c *aliasCounter) walk(n *yaml.Node) error {
 	if n == nil {
 		return nil
 	}
+
 	if n.Kind == yaml.AliasNode {
 		s, err := c.size(n.Alias)
 		if err != nil {
 			return err
 		}
+
 		c.decodes = min(c.decodes+1+s, expansionCap)
 		c.aliased = min(c.aliased+s, expansionCap)
+
 		return nil
 	}
+
 	c.decodes = min(c.decodes+1, expansionCap)
 	for _, child := range n.Content {
 		if err := c.walk(child); err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 

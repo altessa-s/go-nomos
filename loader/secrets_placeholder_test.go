@@ -33,11 +33,13 @@ type secretPlaceholderConfig struct {
 // reference fails with core/errors.ErrNotFound.
 func newSecretManager(t testing.TB, values map[string]string) loadersecrets.Resolver {
 	t.Helper()
+
 	return loadersecrets.ResolverFunc(func(_ context.Context, ref string) (string, error) {
 		v, ok := values[ref]
 		if !ok {
 			return "", fmt.Errorf("secret %q: %w", ref, coreerrs.ErrNotFound)
 		}
+
 		return v, nil
 	})
 }
@@ -48,6 +50,7 @@ func writePlaceholderFile(t testing.TB) string {
 	path := filepath.Join(t.TempDir(), "config.yaml")
 	content := "password: $__secret{app:db_password}\ndsn: \"mongodb://u:$__secret{app:db_password}@db/x\"\n"
 	require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
+
 	return path
 }
 
@@ -68,6 +71,7 @@ func TestLoad_FileSecretPlaceholder(t *testing.T) {
 		if strict {
 			opts = append(opts, loader.WithStrict())
 		}
+
 		cfg := &secretPlaceholderConfig{}
 		_, err := loader.New(&yaml3.Backend{}, opts...).Load(cfg)
 		require.NoError(t, err, "strict=%v", strict)
@@ -116,6 +120,7 @@ func TestLoad_EnvSecretPlaceholder(t *testing.T) {
 		if strict {
 			opts = append(opts, loader.WithStrict())
 		}
+
 		cfg := &secretPlaceholderConfig{}
 		_, err := loader.New(&yaml3.Backend{}, opts...).Load(cfg)
 		require.NoError(t, err, "strict=%v", strict)
@@ -134,6 +139,7 @@ type secretDefaultConfig struct {
 // or a default tag. It mutates the environment, so it is not parallel.
 func TestLoad_SecretPayloadExpandedOnce(t *testing.T) {
 	const payload = "$__secret{app:other}"
+
 	manager := newSecretManager(t, map[string]string{"app:db_password": payload, "app:other": "wrong"})
 
 	fromFile := &secretPlaceholderConfig{}
@@ -146,6 +152,7 @@ func TestLoad_SecretPayloadExpandedOnce(t *testing.T) {
 	require.Equal(t, payload, fromFile.Password, "file")
 
 	t.Setenv("SECRETONCEENVTEST_PASSWORD", "$__secret{app:db_password}")
+
 	fromEnv := &secretPlaceholderConfig{}
 	_, err = loader.New(&yaml3.Backend{}, loader.WithEnvPrefix("SECRETONCEENVTEST"), loader.WithSecretResolver(manager)).Load(fromEnv)
 	require.NoError(t, err)
@@ -167,6 +174,7 @@ func TestLoad_SecretVariableIsNotAPlaceholder(t *testing.T) {
 		Bare   string `yaml:"bare"`
 		Mixed  string `yaml:"mixed"`
 	}
+
 	path := filepath.Join(t.TempDir(), "config.yaml")
 	content := "braced: ${__secret}\nbare: $__secret\nmixed: \"a-${__secret}-$__secret{app:db_password}\"\n"
 	require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
@@ -179,11 +187,13 @@ func TestLoad_SecretVariableIsNotAPlaceholder(t *testing.T) {
 
 	t.Setenv("__secret", "env-value")
 	t.Setenv("SECRETVARTEST_BARE", "x$__secret")
+
 	for _, strict := range []bool{false, true} {
 		opts := []loader.Option{loader.WithPath(path), loader.WithEnvPrefix("SECRETVARTEST"), loader.WithSecretResolver(manager)}
 		if strict {
 			opts = append(opts, loader.WithStrict())
 		}
+
 		cfg := &cfgT{}
 		_, err = loader.New(&yaml3.Backend{}, opts...).Load(cfg)
 		require.NoError(t, err, "strict=%v", strict)
@@ -213,26 +223,32 @@ func TestLoad_FileSecretsResolveUnderEnvOverrides(t *testing.T) {
 		t.Helper()
 		path := filepath.Join(t.TempDir(), "config.yaml")
 		require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
+
 		return path
 	}
 	manager := newSecretManager(t, map[string]string{"app:db_password": "$__secret{app:other}", "app:other": "wrong", "app:file": "file"})
 	load := func(path, prefix string) (*overrideConfig, error) {
 		cfg := &overrideConfig{}
 		_, err := loader.New(&yaml3.Backend{}, loader.WithPath(path), loader.WithEnvPrefix(prefix), loader.WithSecretResolver(manager)).Load(cfg)
+
 		return cfg, err
 	}
 
 	missing := write("password: $__secret{app:missing}\ndb:\n  password: $__secret{app:missing}\nhosts: [\"$__secret{app:missing}\"]\n")
+
 	t.Setenv("SECRETOVERRIDEMISSINGTEST_PASSWORD", "literal")
 	t.Setenv("SECRETOVERRIDEMISSINGTEST_DB__PASSWORD", "nested-literal")
 	t.Setenv("SECRETOVERRIDEMISSINGTEST_HOSTS", "h1,h2")
+
 	_, err := load(missing, "SECRETOVERRIDEMISSINGTEST")
 	require.ErrorIs(t, err, coreerrs.ErrNotFound, "a missing file secret fails even when overridden")
 
 	resolvable := write("password: $__secret{app:file}\ndb:\n  password: $__secret{app:file}\nhosts: [\"$__secret{app:file}\"]\n")
+
 	t.Setenv("SECRETOVERRIDELITERALTEST_PASSWORD", "literal")
 	t.Setenv("SECRETOVERRIDELITERALTEST_DB__PASSWORD", "nested-literal")
 	t.Setenv("SECRETOVERRIDELITERALTEST_HOSTS", "h1,h2")
+
 	cfg, err := load(resolvable, "SECRETOVERRIDELITERALTEST")
 	require.NoError(t, err)
 	require.Equal(t, "literal", cfg.Password)
@@ -242,6 +258,7 @@ func TestLoad_FileSecretsResolveUnderEnvOverrides(t *testing.T) {
 	t.Setenv("SECRETOVERRIDESECRETTEST_PASSWORD", "$__secret{app:db_password}")
 	t.Setenv("SECRETOVERRIDESECRETTEST_DB__PASSWORD", "$__secret{app:db_password}")
 	t.Setenv("SECRETOVERRIDESECRETTEST_HOSTS", "$__secret{app:db_password}")
+
 	cfg, err = load(resolvable, "SECRETOVERRIDESECRETTEST")
 	require.NoError(t, err)
 	require.Equal(t, "$__secret{app:other}", cfg.Password)
@@ -255,6 +272,7 @@ func TestLoad_FileSecretsResolveUnderEnvOverrides(t *testing.T) {
 // mutates the environment, so it is not parallel.
 func TestLoad_EnvOverrideOfAliasedStorage(t *testing.T) {
 	manager := newSecretManager(t, map[string]string{"app:first": "$__secret{app:second}", "app:second": "wrong"})
+
 	const payload = "$__secret{app:second}"
 
 	type ab struct {
@@ -263,16 +281,20 @@ func TestLoad_EnvOverrideOfAliasedStorage(t *testing.T) {
 		L []string `yaml:"l"`
 		M []string `yaml:"m"`
 	}
+
 	type ba struct {
 		B *string  `yaml:"b"`
 		A *string  `yaml:"a"`
 		M []string `yaml:"m"`
 		L []string `yaml:"l"`
 	}
+
 	t.Setenv("SECRETALIASTEST_A", "$__secret{app:first}")
 	t.Setenv("SECRETALIASTEST_L__0", "$__secret{app:first}")
+
 	load := func(cfg any) {
 		t.Helper()
+
 		_, err := loader.New(&yaml3.Backend{}, loader.WithEnvPrefix("SECRETALIASTEST"), loader.WithSecretResolver(manager)).Load(cfg)
 		require.NoError(t, err)
 	}
@@ -309,6 +331,7 @@ func TestLoad_DefaultsBelowEnvCreatedElements(t *testing.T) {
 		Items []defaultedItem          `yaml:"items"`
 		ByKey map[string]defaultedItem `yaml:"byKey"`
 	}
+
 	t.Setenv("SECRETENVDEFAULTTEST_ITEMS__0__NAME", "a")
 	t.Setenv("SECRETENVDEFAULTTEST_BY_KEY__k__NAME", "b")
 
@@ -329,12 +352,15 @@ func TestLoad_DefaultsBelowEnvCreatedElements(t *testing.T) {
 	// A whole collection assigned from one variable: its elements are
 	// created zero and defaulted afterwards.
 	t.Setenv("SECRETENVWHOLETEST_ITEMS", "x")
+
 	whole := &cfgT{}
 	_, err = loader.New(&yaml3.Backend{}, loader.WithEnvPrefix("SECRETENVWHOLETEST"), loader.WithSecretResolver(resolved)).Load(whole)
 	require.NoError(t, err)
+
 	for _, item := range whole.Items {
 		require.Equal(t, "s3cret", item.Password)
 	}
+
 	_, err = loader.New(&yaml3.Backend{}, loader.WithEnvPrefix("SECRETENVWHOLETEST"), loader.WithSecretResolver(missing)).Load(&cfgT{})
 	require.ErrorIs(t, err, coreerrs.ErrNotFound)
 }
@@ -377,11 +403,14 @@ type envNamedMap map[string]string
 // It mutates the environment, so it is not parallel.
 func TestLoad_EnvEntryOfMapHeldUnderTwoTypes(t *testing.T) {
 	manager := newSecretManager(t, map[string]string{"app:first": "$__secret{app:second}", "app:second": "wrong"})
+
 	type cfgT struct {
 		M map[string]string `yaml:"m"`
 		N envNamedMap       `yaml:"n"`
 	}
+
 	t.Setenv("SECRETNAMEDMAPTEST_M__k", "$__secret{app:first}")
+
 	shared := map[string]string{}
 	cfg := &cfgT{M: shared, N: envNamedMap(shared)}
 	_, err := loader.New(&yaml3.Backend{}, loader.WithEnvPrefix("SECRETNAMEDMAPTEST"), loader.WithSecretResolver(manager)).Load(cfg)
@@ -438,9 +467,11 @@ func TestLoad_RecursiveTypeWithSecrets(t *testing.T) {
 		R recursive `yaml:"r"`
 		S string    `yaml:"s"`
 	}
+
 	manager := newSecretManager(t, map[string]string{"app:db_password": "s3cret"})
 	t.Setenv("SECRETRECURSIVETEST_R", "")
 	t.Setenv("SECRETRECURSIVETEST_S", "$__secret{app:db_password}")
+
 	cfg := &cfgT{}
 	_, err := loader.New(&yaml3.Backend{}, loader.WithEnvPrefix("SECRETRECURSIVETEST"), loader.WithSecretResolver(manager)).Load(cfg)
 	require.NoError(t, err)
@@ -449,6 +480,7 @@ func TestLoad_RecursiveTypeWithSecrets(t *testing.T) {
 	// A value for the recursive type itself cannot be parsed; it fails
 	// instead of recursing forever.
 	t.Setenv("SECRETRECURSIVEPHTEST_R", "$__secret{app:db_password}")
+
 	_, err = loader.New(&yaml3.Backend{}, loader.WithEnvPrefix("SECRETRECURSIVEPHTEST"), loader.WithSecretResolver(manager)).Load(&cfgT{})
 	require.ErrorIs(t, err, loader.ErrUnsupportedFieldType)
 }

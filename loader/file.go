@@ -67,6 +67,7 @@ func (cf *loadState) readContent(f *file) (err error) {
 	} else {
 		osFile, err = corefiles.OpenRegular(f.path)
 	}
+
 	if err != nil {
 		err = fmt.Errorf("%w: %s: %w", ErrDecode, f.name, err)
 		return
@@ -86,7 +87,9 @@ func (cf *loadState) readContent(f *file) (err error) {
 	if maxBytes <= 0 {
 		maxBytes = DefaultMaxConfigBytes
 	}
+
 	limited := coreio.NewLimitedReadCloser(osFile, maxBytes)
+
 	content, err := io.ReadAll(limited)
 	if err != nil && err != io.EOF {
 		err = fmt.Errorf("%w: %s: %w", ErrDecode, f.name, err)
@@ -99,6 +102,7 @@ func (cf *loadState) readContent(f *file) (err error) {
 
 	// Perform pre-processing if supported by the backend
 	processedContent := string(content)
+
 	if preprocessor, ok := f.decoder.(backend.Preprocessor); ok {
 		// Includes are confined to the config root held since discovery,
 		// read through it when the backend can.
@@ -107,6 +111,7 @@ func (cf *loadState) readContent(f *file) (err error) {
 		} else {
 			processedContent, err = preprocessor.Preprocess(string(content), filepath.Dir(f.path), cf.rootDir, maxBytes)
 		}
+
 		if err != nil {
 			err = fmt.Errorf("%w: %s: %w", ErrDecode, f.name, err)
 			return
@@ -128,7 +133,9 @@ func (cf *loadState) readContent(f *file) (err error) {
 	if p, ok := f.decoder.(backend.DocumentPreparer); ok {
 		substitutedContent = p.PrepareDocument(substitutedContent)
 	}
+
 	f.content = substitutedContent
+
 	return nil
 }
 
@@ -146,11 +153,14 @@ func (cf *loadState) decodeContent(f *file, out any) (err error) {
 	} else {
 		err = f.decoder.Decode(substitutedReader, out)
 	}
+
 	if err != nil {
 		if len(f.secretRefs) > 0 {
 			return cf.sealDecodeError(f, out, err)
 		}
+
 		err = fmt.Errorf("%w: %s: %w", ErrDecode, f.name, err)
+
 		return
 	}
 
@@ -168,11 +178,13 @@ func (cf *loadState) decodeContent(f *file, out any) (err error) {
 // once its secret-derived values are left out (null).
 func (cf *loadState) sealDecodeError(f *file, out any, err error) error {
 	original := fmt.Errorf("%w: %s: %w", ErrDecode, f.name, err)
+
 	msg := fmt.Sprintf("%s: %s: decoding failed (secrets were resolved; details withheld)", ErrDecode, f.name)
 	if cf.decodesWithoutSecrets(f, reflect.TypeOf(out)) {
 		original = fmt.Errorf("%w; %w", original, secretValueError("a value", f.secretRefs))
 		msg = fmt.Sprintf("%s: %s: %s", ErrDecode, f.name, secretValueError("a value", f.secretRefs))
 	}
+
 	return &withheldError{msg: msg, original: original}
 }
 
@@ -183,17 +195,21 @@ func (cf *loadState) decodesWithoutSecrets(f *file, t reflect.Type) bool {
 	if !ok || t == nil {
 		return false
 	}
+
 	content, err := rewriter.RewriteScalars(f.unresolved, func(s backend.Scalar) (string, bool, bool, error) {
 		return "", false, loadersecrets.HasSecrets(s.Value), nil
 	})
 	if err != nil {
 		return false
 	}
+
 	scratch := reflect.New(indirectType(t)).Interface()
+
 	reader := strings.NewReader(content)
 	if sd, ok := f.decoder.(backend.StrictDecoder); ok && !cf.options.allowUnknownFields {
 		return sd.DecodeStrict(reader, scratch) == nil
 	}
+
 	return f.decoder.Decode(reader, scratch) == nil
 }
 
@@ -203,12 +219,15 @@ func (cf *loadState) bindKeys(f *file) (err error) {
 		f.keys, err = kd.DecodeKeys(strings.NewReader(f.content))
 	} else {
 		var generic map[string]any
+
 		err = f.decoder.Decode(strings.NewReader(f.content), &generic)
 		f.keys = genericNode{value: generic, tag: cf.backend.StructTagName()}
 	}
+
 	if err != nil {
 		err = fmt.Errorf("%w: %s: %w", ErrDecode, f.name, err)
 	}
+
 	return err
 }
 
@@ -235,10 +254,12 @@ func (fs *files) add(f *file) {
 func (fs *files) All() iter.Seq[*file] {
 	return func(yield func(*file) bool) {
 		fs.mx.RLock()
+
 		ordered := make([]*file, 0, len(fs.files))
 		for _, f := range fs.files {
 			ordered = append(ordered, f)
 		}
+
 		fs.mx.RUnlock()
 
 		// Files are keyed by name, so names never tie.

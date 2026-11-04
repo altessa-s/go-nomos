@@ -66,13 +66,13 @@ file and environment values still load normally.
 
 ## Development
 
-| Command         | Description                                          |
-|-----------------|------------------------------------------------------|
-| `make test`     | Run all tests                                        |
-| `make lint`     | golangci-lint with the repo config (`.golangci.yml`) |
-| `make generate` | Install `optgen` and run go generate                 |
-| `make bench`    | Run all benchmarks                                   |
-| `make fuzz`     | Fuzz every target for `FUZZTIME`                     |
+| Command         | Description                                                                 |
+|-----------------|-----------------------------------------------------------------------------|
+| `make test`     | Run all tests                                                               |
+| `make lint`     | Tidy, format and run golangci-lint with the repo config (`.golangci.yml`)   |
+| `make generate` | Build the pinned `optgen` and golangci-lint into `bin/` and run go generate |
+| `make bench`    | Run all benchmarks                                                          |
+| `make fuzz`     | Fuzz every target for `FUZZTIME`                                            |
 
 `make generate` builds [go-optgen](https://github.com/altessa-s/go-optgen) at the version pinned in `devtools/go.mod` into `bin/optgen`, then generates
 all options. No sibling checkout is required. Commit regenerated files together with their `options.go` sources.

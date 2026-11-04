@@ -27,14 +27,18 @@ const regPrefix = "ENVREG"
 // strict is set, with the section delimiter delimiter ("" keeps the default).
 func loadReg(t testing.TB, cfg any, strict bool, delimiter string) error {
 	t.Helper()
+
 	opts := []loader.Option{loader.WithEnvPrefix(regPrefix)}
 	if strict {
 		opts = append(opts, loader.WithStrict())
 	}
+
 	if delimiter != "" {
 		opts = append(opts, loader.WithEnvSectionDelimiter(delimiter))
 	}
+
 	_, err := loader.New(nil, opts...).Load(cfg)
+
 	return err
 }
 
@@ -97,6 +101,7 @@ func TestLoad_EnvSuffixOnScalarInElement(t *testing.T) {
 
 	cfg := &regSuffixConfig{}
 	require.NoError(t, loadReg(t, cfg, false, "."))
+
 	for _, item := range cfg.Items {
 		require.Zero(t, item.Timeout)
 	}
@@ -244,6 +249,7 @@ func TestStrict_EnvExpansionOnlyForAssignedVariables(t *testing.T) {
 // "$" followed by no name stays literal, in both modes.
 func TestLoad_EnvWholeReferenceWithSuffix(t *testing.T) {
 	t.Setenv("ENVREG_REF", "service")
+
 	tests := []struct {
 		name, value, want string
 	}{
@@ -254,6 +260,7 @@ func TestLoad_EnvWholeReferenceWithSuffix(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Setenv(regPrefix+"_NAME", tc.value)
+
 			for _, strict := range []bool{false, true} {
 				cfg := &regExpandConfig{}
 				require.NoError(t, loadReg(t, cfg, strict, ""))
@@ -316,11 +323,14 @@ func TestLoad_EnvNestedSliceSecretResolvedOnce(t *testing.T) {
 	for _, env := range envs {
 		t.Run(env, func(t *testing.T) {
 			t.Setenv(regPrefix+"_"+env, "$__secret{app:port}")
+
 			var calls atomic.Int32
+
 			resolver := loadersecrets.ResolverFunc(func(context.Context, string) (string, error) {
 				if calls.Add(1) > 1 {
 					return "", errors.New("resolved twice")
 				}
+
 				return "80", nil
 			})
 

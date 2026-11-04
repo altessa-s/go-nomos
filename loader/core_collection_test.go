@@ -16,9 +16,11 @@ import (
 // commas of its value.
 func TestDefaultTagSkipZeroKeepsCommas(t *testing.T) {
 	t.Parallel()
+
 	var cfg struct {
 		Hosts []string `default:"a,b,skip_zero"`
 	}
+
 	_, err := loader.New(nil, loader.WithSkipEnv()).LoadContext(t.Context(), &cfg)
 	require.NoError(t, err)
 	require.Equal(t, []string{"a", "b"}, cfg.Hosts)
@@ -66,7 +68,9 @@ func TestEnvBracketedLists(t *testing.T) {
 			for k, v := range tc.env {
 				t.Setenv("COREBRACKETTEST_"+k, v)
 			}
+
 			var cfg collectionEnvConfig
+
 			_, err := loader.New(nil, loader.WithEnvPrefix("COREBRACKETTEST")).LoadContext(t.Context(), &cfg)
 			require.NoError(t, err)
 			require.Equal(t, tc.want, cfg)
@@ -87,7 +91,9 @@ func TestEnvBracketedListMalformed(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Setenv("COREBRACKETBADTEST_"+tc.env, tc.value)
+
 			var cfg collectionEnvConfig
+
 			_, err := loader.New(nil, loader.WithEnvPrefix("COREBRACKETBADTEST")).LoadContext(t.Context(), &cfg)
 			require.ErrorIs(t, err, loader.ErrBindEnv)
 			require.ErrorIs(t, err, loader.ErrSliceItemInvalid)
@@ -100,9 +106,11 @@ func TestEnvBracketedListMalformed(t *testing.T) {
 // nothing. It mutates the environment, so it is not parallel.
 func TestEnvEmptyValueLeavesPointerNil(t *testing.T) {
 	t.Setenv("COREEMPTYPTRTEST_COUNT", "")
+
 	var cfg struct {
 		Count *int
 	}
+
 	_, err := loader.New(nil, loader.WithEnvPrefix("COREEMPTYPTRTEST")).LoadContext(t.Context(), &cfg)
 	require.NoError(t, err)
 	require.Nil(t, cfg.Count)

@@ -64,6 +64,7 @@ func (cf *loadState) resolveSecrets(ctx context.Context, value string) (string, 
 	if cf.options.secretResolver == nil || !loadersecrets.HasSecrets(value) {
 		return value, nil
 	}
+
 	return loadersecrets.New(recordingResolver{inner: cf.options.secretResolver, cf: cf}).Expand(ctx, value)
 }
 
@@ -79,10 +80,12 @@ type recordingResolver struct {
 func (r recordingResolver) Resolve(ctx context.Context, ref string) (string, error) {
 	ctx, cancel := r.cf.options.getSecretsContext(ctx)
 	defer cancel()
+
 	v, err := r.inner.Resolve(ctx, ref)
 	if err == nil {
 		r.cf.secretsResolved = true
 	}
+
 	return v, err
 }
 
@@ -111,6 +114,7 @@ func sealParseError(err error, where string, refs []string) error {
 // backend, a placeholder in any parsed string value fails the load.
 func (cf *loadState) expandFileSecrets(ctx context.Context, files []*file) error {
 	rootType := indirectType(cf.confType)
+
 	for _, f := range files {
 		// Hostile input (alias cycles, excessive aliasing) is rejected before
 		// the keys are bound and walked: on the backend's own parse tree when
@@ -118,7 +122,9 @@ func (cf *loadState) expandFileSecrets(ctx context.Context, files []*file) error
 		// without source rewriting also needs to find placeholders. A typed
 		// decode would reject a placeholder for a number.
 		var parsed any
+
 		_, rewrites := f.decoder.(backend.ScalarRewriter)
+
 		checker, checks := f.decoder.(backend.DocumentChecker)
 		if checks && rewrites {
 			if err := checker.CheckDocument(f.content); err != nil {
@@ -127,6 +133,7 @@ func (cf *loadState) expandFileSecrets(ctx context.Context, files []*file) error
 		} else if err := f.decoder.Decode(strings.NewReader(f.content), &parsed); err != nil {
 			return fmt.Errorf("%w: %s: %w", ErrDecode, f.name, err)
 		}
+
 		if err := cf.bindKeys(f); err != nil {
 			return err
 		}
@@ -138,10 +145,12 @@ func (cf *loadState) expandFileSecrets(ctx context.Context, files []*file) error
 				return fmt.Errorf("%w: %s: %w", ErrDecode, f.name, err)
 			}
 		}
+
 		if err := cf.expandFileContent(ctx, f, rootType, parsed); err != nil {
 			return fmt.Errorf("%w: %s: %w", ErrDecode, f.name, err)
 		}
 	}
+
 	return nil
 }
 
@@ -170,6 +179,7 @@ func holdsPlaceholder(v any) bool {
 	default:
 		return holdsPlaceholderReflect(reflect.ValueOf(v))
 	}
+
 	return false
 }
 
@@ -191,6 +201,7 @@ func holdsPlaceholderReflect(rv reflect.Value) bool {
 		}
 	default:
 	}
+
 	return false
 }
 
@@ -205,8 +216,10 @@ func (cf *loadState) expandFileContent(ctx context.Context, f *file, rootType re
 		if holdsPlaceholder(parsed) {
 			return ErrSecretsUnsupported
 		}
+
 		return nil
 	}
+
 	literal := make(map[backend.Position]bool)
 	collectTargets(f.keys, rootType, literal)
 
@@ -214,33 +227,41 @@ func (cf *loadState) expandFileContent(ctx context.Context, f *file, rootType re
 		if !loadersecrets.HasSecrets(s.Value) {
 			return "", false, false, nil
 		}
+
 		refs := loadersecrets.References(s.Value)
 		if s.Tag != "" && s.Tag != "!!str" {
 			return "", false, false, fmt.Errorf("%w: line %d: secret placeholder (%s) under the tag %s",
 				ErrSecretTagged, s.Pos.Line, strings.Join(refs, ", "), s.Tag)
 		}
+
 		if s.Shared {
 			return "", false, false, fmt.Errorf("%w: line %d: secret placeholder (%s) inside an anchored node",
 				ErrSecretInAnchor, s.Pos.Line, strings.Join(refs, ", "))
 		}
+
 		resolved, err := cf.resolveSecrets(ctx, s.Value)
 		if err != nil {
 			return "", false, false, fmt.Errorf("line %d: %w", s.Pos.Line, err)
 		}
+
 		f.secretRefs = append(f.secretRefs, fmt.Sprintf("line %d: %s", s.Pos.Line, strings.Join(refs, ", ")))
 		isLiteral, known := literal[s.Pos]
+
 		keepString := isLiteral || !known || s.Tag == "!!str"
 		if !keepString && !utf8.ValidString(resolved) {
 			// A number or a bool cannot be invalid UTF-8; the document
 			// could not even carry it as plain text.
 			return "", false, false, fmt.Errorf("line %d: %w", s.Pos.Line, secretValueError("the value", refs))
 		}
+
 		return resolved, keepString, true, nil
 	})
 	if err != nil {
 		return err
 	}
+
 	f.unresolved, f.content = f.content, content
+
 	return nil
 }
 
@@ -251,6 +272,7 @@ func collectTargets(node backend.KeyNode, t reflect.Type, literal map[backend.Po
 	if node == nil {
 		return
 	}
+
 	t = derefType(t)
 	switch t.Kind() {
 	case reflect.Struct:
@@ -258,6 +280,7 @@ func collectTargets(node backend.KeyNode, t reflect.Type, literal map[backend.Po
 			for i, child := range fields {
 				collectTargets(child, t.Field(i).Type, literal)
 			}
+
 			return
 		}
 	case reflect.Map:
@@ -265,6 +288,7 @@ func collectTargets(node backend.KeyNode, t reflect.Type, literal map[backend.Po
 			for _, child := range entries {
 				collectTargets(child, t.Elem(), literal)
 			}
+
 			return
 		}
 	case reflect.Slice, reflect.Array:
@@ -272,14 +296,17 @@ func collectTargets(node backend.KeyNode, t reflect.Type, literal map[backend.Po
 			for _, child := range elems {
 				collectTargets(child, t.Elem(), literal)
 			}
+
 			return
 		}
 	default:
 	}
+
 	lister, ok := node.(backend.ScalarLister)
 	if !ok {
 		return
 	}
+
 	for _, pos := range lister.Scalars() {
 		literal[pos] = keepsString(t)
 	}

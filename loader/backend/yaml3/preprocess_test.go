@@ -182,12 +182,14 @@ func TestBackend_Preprocess_MaxDepth(t *testing.T) {
 	// Create a chain of 11 includes to exceed maxIncludeDepth of 10
 	for i := range 11 {
 		filename := filepath.Join(tmpDir, yamlName(i))
+
 		var content string
 		if i == 10 {
 			content = "final: value"
 		} else {
 			content = "!include " + yamlName(i+1)
 		}
+
 		require.NoError(t, os.WriteFile(filename, []byte(content), 0644))
 	}
 
@@ -243,12 +245,15 @@ func TestBackend_Preprocess_MaxBytes(t *testing.T) {
 			}
 
 			backend := &yaml3.Backend{}
+
 			out, err := backend.Preprocess(tc.main, dir, dir, limit)
 			if tc.wantErr {
 				require.Error(t, err)
 				require.True(t, errors.Is(err, coreio.ErrReadLimitExceeded), "got %v", err)
+
 				return
 			}
+
 			require.NoError(t, err)
 			require.LessOrEqual(t, len(out), limit)
 		})

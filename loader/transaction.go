@@ -15,8 +15,10 @@ func captureConfig(conf any) func() {
 	if conf == nil {
 		return func() {}
 	}
+
 	c := &configCapture{seen: make(map[visitKey]bool)}
 	c.capture(reflect.ValueOf(conf))
+
 	return func() {
 		for _, undo := range slices.Backward(c.undo) {
 			undo()
@@ -41,14 +43,18 @@ func (c *configCapture) capture(v reflect.Value) {
 	if !v.IsValid() {
 		return
 	}
+
 	if v.CanSet() {
 		saved := reflect.New(v.Type()).Elem()
 		saved.Set(v)
+
 		c.undo = append(c.undo, func() { v.Set(saved) })
 	}
+
 	if c.visited(v) {
 		return
 	}
+
 	switch v.Kind() {
 	case reflect.Pointer, reflect.Interface:
 		if !v.IsNil() {
@@ -75,27 +81,34 @@ func (c *configCapture) visited(v reflect.Value) bool {
 		if v.IsNil() {
 			return true
 		}
+
 		key := visitKey{typ: v.Type(), ptr: v.Pointer()}
 		if v.Kind() == reflect.Slice {
 			key.len = v.Len()
 		}
+
 		if c.seen[key] {
 			return true
 		}
+
 		c.seen[key] = true
 	default:
 	}
+
 	return false
 }
 func (c *configCapture) captureMap(v reflect.Value) {
 	original := reflect.ValueOf(v.Interface())
+
 	saved := reflect.MakeMapWithSize(v.Type(), v.Len())
 	for it := v.MapRange(); it.Next(); {
 		saved.SetMapIndex(it.Key(), it.Value())
 		c.capture(it.Value())
 	}
+
 	c.undo = append(c.undo, func() {
 		original.Clear()
+
 		for it := saved.MapRange(); it.Next(); {
 			original.SetMapIndex(it.Key(), it.Value())
 		}

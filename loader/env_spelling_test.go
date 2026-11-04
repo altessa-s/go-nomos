@@ -128,6 +128,7 @@ type secretValueConfig struct {
 // expanded secret.
 func TestLoad_EnvErrorOmitsValue(t *testing.T) {
 	const secret = "s3cr3t-Pa55w0rd" // gitleaks:allow -- Synthetic value testing error redaction.
+
 	tests := []struct {
 		name string
 		env  string

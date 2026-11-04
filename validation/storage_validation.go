@@ -25,6 +25,7 @@ func ValidateStorage[T comparable](structPtr any, typePtr *T, allowed []T, cases
 	if typePtr == nil {
 		return fmt.Errorf("storage selector: %w", validation.ErrFieldPointer(0))
 	}
+
 	allowedAny := make([]any, 0, len(allowed))
 	for _, v := range allowed {
 		allowedAny = append(allowedAny, v)

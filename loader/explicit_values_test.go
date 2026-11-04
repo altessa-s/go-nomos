@@ -46,9 +46,11 @@ func loadExplicit(t testing.TB, content string) *explicitConfig {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "config.yaml")
 	require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
+
 	cfg := &explicitConfig{}
 	_, err := loader.New(nil, loader.WithPath(path)).Load(cfg)
 	require.NoError(t, err)
+
 	return cfg
 }
 
@@ -235,13 +237,16 @@ type reviewConfig struct {
 
 func loadReview(t testing.TB, opts []loader.Option, files ...string) *reviewConfig {
 	t.Helper()
+
 	dir := t.TempDir()
 	for i, content := range files {
 		require.NoError(t, os.WriteFile(filepath.Join(dir, string(rune('a'+i))+".yaml"), []byte(content), 0o600))
 	}
+
 	cfg := &reviewConfig{}
 	_, err := loader.New(nil, append([]loader.Option{loader.WithPath(dir)}, opts...)...).Load(cfg)
 	require.NoError(t, err)
+
 	return cfg
 }
 
@@ -305,9 +310,11 @@ func loadKeys(t testing.TB, content string, opts ...loader.Option) *keysConfig {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "config.yaml")
 	require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
+
 	cfg := &keysConfig{}
 	_, err := loader.New(nil, append([]loader.Option{loader.WithPath(path)}, opts...)...).Load(cfg)
 	require.NoError(t, err)
+
 	return cfg
 }
 
@@ -320,6 +327,7 @@ func TestLoad_DefaultDashMeansNoDefault(t *testing.T) {
 	cfg := &defaultDashConfig{}
 	_, err := loader.New(nil, loader.WithSkipEnv()).Load(cfg)
 	require.NoError(t, err)
+
 	for _, tc := range []struct {
 		name string
 		got  any
@@ -344,6 +352,7 @@ func TestLoad_DefaultDashMeansNoDefault(t *testing.T) {
 	file := filepath.Join(t.TempDir(), "explicit.yaml")
 	content := "string: file\nstringPtr: pointer\nint: 7\nduration: 2s\nstrings: [a, b]\nmap: {key: value}\nnested:\n  value: nested-file\nstructPtr:\n  value: pointer-file\n"
 	require.NoError(t, os.WriteFile(file, []byte(content), 0o600))
+
 	fileCfg := &defaultDashConfig{}
 	_, err = loader.New(nil, loader.WithPath(file), loader.WithSkipEnv()).Load(fileCfg)
 	require.NoError(t, err)
@@ -357,6 +366,7 @@ func TestLoad_DefaultDashMeansNoDefault(t *testing.T) {
 	require.Equal(t, "pointer-file", fileCfg.StructPtr.Value)
 
 	t.Setenv("BUG_DASH_DEFAULT_DASH_ENV", "from-env")
+
 	envCfg := &defaultDashConfig{}
 	_, err = loader.New(nil, loader.WithEnvPrefix("BUG_DASH")).Load(envCfg)
 	require.NoError(t, err)

@@ -39,9 +39,11 @@ func (r durationRule) Validate(value any) error {
 	if err := r.base.Validate(value); err != nil {
 		return err
 	}
+
 	v, isNil := validation.Indirect(value)
 	if d, ok := v.(time.Duration); !isNil && ok && d < 0 {
 		return ErrNegativeDuration
 	}
+
 	return nil
 }

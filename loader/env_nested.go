@@ -19,6 +19,7 @@ func (cf *loadState) loadNestedEnvs(ctx context.Context, envs map[string]string,
 			return cf.envVarError(envKey, err)
 		}
 	}
+
 	return nil
 }
 
@@ -40,20 +41,24 @@ func (cf *loadState) setNestedFieldFromEnv(ctx context.Context, envKey, envValue
 			// The tag names the whole variable: the plain-field pass set it.
 			return nil
 		}
+
 		if _, ok := cf.settablePath(tagged.field.Type, entryPath, false); !ok {
 			// A slice entry path, which the indexed pass sets.
 			return nil
 		}
+
 		if !tagged.value.IsValid() {
 			allocated := *tagged
 			allocated.value = fieldByIndexAlloc(reflect.ValueOf(cf.conf).Elem(), tagged.index)
 			tagged = &allocated
 		}
+
 		return cf.setNestedFieldValue(ctx, tagged, entryPath, envValue, tagged.pathSteps(), false)
 	}
 
 	// Find the root field
 	rootFieldName := parts[0]
+
 	var rootField *field
 
 	cf.fields.each(func(fld *field) bool {
@@ -63,6 +68,7 @@ func (cf *loadState) setNestedFieldFromEnv(ctx context.Context, envKey, envValue
 			rootField = fld
 			return false // Stop searching
 		}
+
 		return true
 	})
 
@@ -85,6 +91,7 @@ func (cf *loadState) setNestedFieldFromEnv(ctx context.Context, envKey, envValue
 		if missing != "" && cf.options.strict {
 			return fmt.Errorf("%w: %s", ErrFieldNotFound, missing)
 		}
+
 		return nil
 	}
 

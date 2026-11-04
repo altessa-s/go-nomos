@@ -98,11 +98,13 @@ func NestedEach[S ~[]T, T any, P interface {
 }](field *S) *validation.FieldRules {
 	return validation.Field(field, validation.By(func(any) error {
 		errs := validation.Errors{}
+
 		for i := range *field {
 			if err := P(&(*field)[i]).Validate(); err != nil {
 				errs[strconv.Itoa(i)] = err
 			}
 		}
+
 		return errs.Filter()
 	}))
 }
@@ -159,6 +161,7 @@ func structTypeName(structPtr any) string {
 	if t == nil {
 		return "<nil>"
 	}
+
 	if t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}

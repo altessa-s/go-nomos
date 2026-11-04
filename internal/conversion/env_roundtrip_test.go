@@ -16,9 +16,11 @@ import (
 
 func TestEnvStringRoundTrip(t *testing.T) {
 	t.Parallel()
+
 	for _, value := range []string{"", " true ", "true", "001", "1.5", "NaN", "[a,b]", "first\nADMIN=true", "line\r\nnext", " tab\t ", `C:\new\token`, `"quoted"`, "'quoted'", "a,b", "a#b", "$HOME", "`cmd`", "\x00"} {
 		t.Run(value, func(t *testing.T) {
 			t.Parallel()
+
 			doc := (&conversion.Env{}).Render(map[string]any{"value": value}, nil, false)
 			got, err := (&conversion.Parser{}).Parse(bytes.NewReader(doc), false)
 			require.NoError(t, err)
@@ -32,6 +34,7 @@ func TestEnvStringRoundTrip(t *testing.T) {
 
 func TestEnvArrayRoundTrip(t *testing.T) {
 	t.Parallel()
+
 	want := map[string]any{"values": []any{"a,b", "true", " a ", "line\nnext", `a"b`, "", int64(12), true, []any{"nested,comma", int64(3)}}}
 	doc := (&conversion.Env{}).Render(want, nil, false)
 	got, err := (&conversion.Parser{}).Parse(bytes.NewReader(doc), false)
@@ -41,6 +44,7 @@ func TestEnvArrayRoundTrip(t *testing.T) {
 
 func TestEnvQuotedTypes(t *testing.T) {
 	t.Parallel()
+
 	got, err := (&conversion.Parser{}).Parse(strings.NewReader("A=\"true\"\nB='123'\nC=true\nD=123\n"), false)
 	require.NoError(t, err)
 	require.Equal(t, map[string]any{"a": "true", "b": "123", "c": true, "d": int64(123)}, got)
@@ -50,11 +54,14 @@ func FuzzEnvStringRoundTrip(f *testing.F) {
 	for _, value := range []string{"normal", " first\nADMIN=true ", "true", "\x00", `\"`} {
 		f.Add(value)
 	}
+
 	f.Fuzz(func(t *testing.T, value string) {
 		t.Parallel()
+
 		if len(value) > 4096 {
 			t.Skip()
 		}
+
 		doc := (&conversion.Env{}).Render(map[string]any{"value": value}, nil, false)
 		got, err := (&conversion.Parser{}).Parse(bytes.NewReader(doc), false)
 		require.NoError(t, err)
@@ -64,11 +71,13 @@ func FuzzEnvStringRoundTrip(f *testing.F) {
 
 func TestEnvCommentedRoundTrip(t *testing.T) {
 	t.Parallel()
+
 	data := map[string]any{"value": "first\nADMIN=true"}
 	doc := (&conversion.Env{}).Render(data, map[string]bool{"VALUE": true}, true)
 	got, err := (&conversion.Parser{}).Parse(bytes.NewReader(doc), true)
 	require.NoError(t, err)
 	require.Equal(t, data, got)
+
 	ignored, err := (&conversion.Parser{}).Parse(bytes.NewReader(doc), false)
 	require.NoError(t, err)
 	require.Empty(t, ignored)
@@ -76,6 +85,7 @@ func TestEnvCommentedRoundTrip(t *testing.T) {
 
 func TestEnvCamelCaseSiblingSections(t *testing.T) {
 	t.Parallel()
+
 	data := map[string]any{
 		"fileStore": map[string]any{"dir": "/data"},
 		"tlsConfig": map[string]any{"enabled": true},
@@ -94,6 +104,7 @@ func TestEnvCamelCaseSiblingSections(t *testing.T) {
 
 func TestEnvExcessiveArrayNestingStaysLiteral(t *testing.T) {
 	t.Parallel()
+
 	value := strings.Repeat("[", 1000) + "x" + strings.Repeat("]", 1000)
 	got, err := (&conversion.Parser{}).Parse(strings.NewReader("VALUE="+value), false)
 	require.NoError(t, err)
@@ -102,6 +113,7 @@ func TestEnvExcessiveArrayNestingStaysLiteral(t *testing.T) {
 
 func TestEnvRejectsInvalidUTF8Names(t *testing.T) {
 	t.Parallel()
+
 	_, err := (&conversion.Parser{}).Parse(strings.NewReader("\xba=8\n\x8b=1"), false)
 	require.ErrorIs(t, err, conversion.ErrInvalidInput)
 }

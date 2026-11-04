@@ -18,6 +18,7 @@ func BenchmarkLoad_Defaults(b *testing.B) {
 	l := loader.New(nil)
 
 	b.ResetTimer()
+
 	for b.Loop() {
 		_, _ = l.Load(cfg)
 	}
@@ -31,6 +32,7 @@ func BenchmarkLoad_Env(b *testing.B) {
 	l := loader.New(nil)
 
 	b.ResetTimer()
+
 	for b.Loop() {
 		_, _ = l.Load(cfg)
 	}
@@ -45,6 +47,7 @@ database:
   port: 5432
 `
 	tmpDir := b.TempDir()
+
 	configPath := filepath.Join(tmpDir, "config.yaml")
 	if err := os.WriteFile(configPath, []byte(content), 0644); err != nil {
 		b.Fatalf("Failed to write config file: %v", err)
@@ -54,6 +57,7 @@ database:
 	cfg := &TestConfig{}
 
 	b.ResetTimer()
+
 	for b.Loop() {
 		_, _ = l.Load(cfg)
 	}
@@ -85,6 +89,7 @@ type benchConfig struct {
 // and slice elements and environment overrides end to end.
 func BenchmarkLoad_FileEnvCollections(b *testing.B) {
 	dir := b.TempDir()
+
 	files := map[string]string{
 		"a.yaml": "name: bench\nenabled: false\nlimit: 0\ndb:\n  port: 0\nitems:\n  - name: a\n  - name: b\n    weight: 0\n" +
 			"byName:\n  x: {name: x, enabled: false}\n  y: {name: y}\n",
@@ -95,6 +100,7 @@ func BenchmarkLoad_FileEnvCollections(b *testing.B) {
 			b.Fatalf("write %s: %v", name, err)
 		}
 	}
+
 	b.Setenv("BENCH_LIMIT", "7")
 	b.Setenv("BENCH_DB__HOST", "db")
 	b.Setenv("BENCH_ITEMS__0__WEIGHT", "3")

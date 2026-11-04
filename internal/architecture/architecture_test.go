@@ -19,46 +19,58 @@ import (
 
 func TestPackageBoundaries(t *testing.T) {
 	t.Parallel()
+
 	root := filepath.Join("..", "..")
 	packages := make(map[string]bool)
 	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
+
 		if entry.IsDir() {
 			if strings.HasPrefix(entry.Name(), ".") && path != root || entry.Name() == "devtools" || entry.Name() == "testdata" {
 				return filepath.SkipDir
 			}
+
 			return nil
 		}
+
 		if !strings.HasSuffix(path, ".go") {
 			return nil
 		}
+
 		rel, err := filepath.Rel(root, path)
 		if err != nil {
 			return err
 		}
+
 		rel = filepath.ToSlash(rel)
 		dir := filepath.ToSlash(filepath.Dir(rel))
 		packages[dir] = true
+
 		file, err := parser.ParseFile(token.NewFileSet(), path, nil, parser.ImportsOnly)
 		if err != nil {
 			return err
 		}
+
 		for _, spec := range file.Imports {
 			imp, err := strconv.Unquote(spec.Path.Value)
 			if err != nil {
 				return err
 			}
+
 			if imp == "gopkg.in/yaml.v3" && dir != "loader/backend/yaml3" {
 				t.Errorf("%s imports YAML outside its adapter", rel)
 			}
+
 			if imp == "github.com/BurntSushi/toml" && dir != "loader/backend/toml" {
 				t.Errorf("%s imports TOML outside its adapter", rel)
 			}
+
 			if strings.HasPrefix(dir, "internal/") && strings.Contains(imp, "go-nomos/cmd/") {
 				t.Errorf("%s depends on CLI", rel)
 			}
+
 			if dir == "internal/conversion" && (imp == "os" || imp == "net/http" || strings.Contains(imp, "/cobra") || strings.Contains(imp, "go-nomos/loader/backend")) {
 				t.Errorf("%s couples conversion to adapter %s", rel, imp)
 			}
@@ -68,9 +80,11 @@ func TestPackageBoundaries(t *testing.T) {
 				t.Errorf("%s couples loader operations to concrete backend", rel)
 			}
 		}
+
 		return nil
 	})
 	require.NoError(t, err)
+
 	for dir := range packages {
 		for _, name := range []string{"doc.go", "README.md"} {
 			_, err := os.Stat(filepath.Join(root, dir, name))

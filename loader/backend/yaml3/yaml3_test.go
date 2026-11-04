@@ -69,6 +69,7 @@ func TestBackend_Decode(t *testing.T) {
 			t.Parallel()
 
 			var result map[string]any
+
 			reader := strings.NewReader(tt.input)
 			err := backend.Decode(reader, &result)
 
@@ -76,6 +77,7 @@ func TestBackend_Decode(t *testing.T) {
 				require.Error(t, err)
 				return
 			}
+
 			require.NoError(t, err)
 
 			if tt.check != nil {

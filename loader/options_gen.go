@@ -13,6 +13,9 @@ import (
 type Option func(o *options)
 
 // WithAllowUnknownFields enables the allowUnknownFields option.
+//
+// allowUnknownFields disables the default rejection of file keys that
+// bind to no field of the configuration struct.
 func WithAllowUnknownFields() Option {
 	return func(o *options) {
 		value := true
@@ -21,6 +24,13 @@ func WithAllowUnknownFields() Option {
 }
 
 // WithEnvPrefix sets the envPrefix option.
+//
+// envPrefix selects the environment variables the loader reads: when it
+// is set, a variable without it is ignored, and it is stripped before
+// the rest of the name is matched. It is normalized by
+// appinfo.NormalizeEnvKeyPrefix (uppercased, "-" and "." replaced by
+// "_", exactly one trailing "_"), so "app", "APP" and "APP_" all select
+// APP_*.
 func WithEnvPrefix[T interface{ string | *string }](v T) Option {
 	return func(o *options) {
 		var value string
@@ -72,6 +82,10 @@ func WithMaxConfigBytes(v int64) Option {
 }
 
 // WithMaxEnvSliceLen sets the maxEnvSliceLen option.
+//
+// maxEnvSliceLen caps the length an indexed environment variable can grow
+// a slice to; an index inside the slice's current length is always
+// accepted.
 func WithMaxEnvSliceLen(v int) Option {
 	return func(o *options) {
 		o.maxEnvSliceLen = v

@@ -37,17 +37,21 @@ func largeConfig(sections, fields int) map[string]any {
 				section[fmt.Sprintf("field%d", f)] = "30s"
 			}
 		}
+
 		section["nested"] = map[string]any{"enabled": true, "ratio": 0.5}
 		data[fmt.Sprintf("section%d", s)] = section
 	}
+
 	return data
 }
 
 func BenchmarkParse(b *testing.B) {
 	doc := (&conversion.Env{}).Render(largeConfig(50, 20), nil, false)
 	parser := &conversion.Parser{}
+
 	b.SetBytes(int64(len(doc)))
 	b.ReportAllocs()
+
 	for b.Loop() {
 		if _, err := parser.Parse(bytes.NewReader(doc), false); err != nil {
 			b.Fatal(err)
@@ -57,7 +61,9 @@ func BenchmarkParse(b *testing.B) {
 
 func BenchmarkRenderEnvLarge(b *testing.B) {
 	data := largeConfig(50, 20)
+
 	b.ReportAllocs()
+
 	for b.Loop() {
 		_ = (&conversion.Env{}).Render(data, nil, false)
 	}
@@ -65,7 +71,9 @@ func BenchmarkRenderEnvLarge(b *testing.B) {
 
 func BenchmarkRenderMarkdownLarge(b *testing.B) {
 	data := largeConfig(50, 20)
+
 	b.ReportAllocs()
+
 	for b.Loop() {
 		if _, err := (&conversion.Markdown{}).Render(b.Context(), data); err != nil {
 			b.Fatal(err)
@@ -75,7 +83,9 @@ func BenchmarkRenderMarkdownLarge(b *testing.B) {
 
 func BenchmarkMerge(b *testing.B) {
 	const files = 100
+
 	names := make([]string, files)
+
 	trees := make(map[string]map[string]any, files)
 	for i := range files {
 		name := fmt.Sprintf("%03d.yaml", i)
@@ -84,7 +94,9 @@ func BenchmarkMerge(b *testing.B) {
 	}
 	// Merge adopts and updates maps returned by read; identical keys keep the shared trees stable across iterations.
 	read := func(_ context.Context, name string) (map[string]any, error) { return trees[name], nil }
+
 	b.ReportAllocs()
+
 	for b.Loop() {
 		if _, err := conversion.Merge(b.Context(), names, read); err != nil {
 			b.Fatal(err)

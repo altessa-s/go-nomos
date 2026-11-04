@@ -18,6 +18,7 @@ func TestMarkdownEscapesCells(t *testing.T) {
 	doc, err := (&conversion.Markdown{}).Render(t.Context(), map[string]any{"value": "a|b\n`code`<script>"})
 	require.NoError(t, err)
 	require.Contains(t, string(doc), "<code>a&#124;b<br>&#96;code&#96;&lt;script&gt;</code>")
+
 	for line := range strings.SplitSeq(string(doc), "\n") {
 		if strings.HasPrefix(line, "| `VALUE`") {
 			require.Equal(t, 4, strings.Count(line, "|"))
@@ -27,6 +28,7 @@ func TestMarkdownEscapesCells(t *testing.T) {
 
 func TestMarkdownTypeDetection(t *testing.T) {
 	t.Parallel()
+
 	tests := []struct {
 		name  string
 		value any
@@ -52,6 +54,7 @@ func TestMarkdownTypeDetection(t *testing.T) {
 
 func TestMarkdownValueTypes(t *testing.T) {
 	t.Parallel()
+
 	tests := []struct {
 		name  string
 		value any
@@ -95,10 +98,12 @@ func TestMarkdownValueTypes(t *testing.T) {
 
 func TestMarkdownRenderGolden(t *testing.T) {
 	t.Parallel()
+
 	data := map[string]any{
 		"server": map[string]any{"port": 8080, "timeout": "30s", "tls": map[string]any{"enabled": false}},
 		"names":  []any{"x"},
 	}
+
 	const want = "# Environment Variables Reference\n\n" +
 		"This document describes all available environment variables for configuration.\n\n" +
 		"## Table of Contents\n\n" +
@@ -114,6 +119,7 @@ func TestMarkdownRenderGolden(t *testing.T) {
 		"| `SERVER__PORT` | int | `8080` |\n" +
 		"| `SERVER__TIMEOUT` | duration | `30s` |\n" +
 		"| `SERVER__TLS__ENABLED` | bool | `false` |\n\n"
+
 	doc, err := (&conversion.Markdown{}).Render(t.Context(), data)
 	require.NoError(t, err)
 	require.Equal(t, want, string(doc))

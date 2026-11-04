@@ -38,6 +38,7 @@ func (b *Backend) RewriteScalars(content string, rewrite backend.ScalarRewrite) 
 		if errors.Is(err, io.EOF) {
 			return content, nil
 		}
+
 		return "", err
 	}
 
@@ -45,19 +46,24 @@ func (b *Backend) RewriteScalars(content string, rewrite backend.ScalarRewrite) 
 	if err := w.walk(&doc, false); err != nil {
 		return "", err
 	}
+
 	if !w.changed {
 		return content, nil
 	}
 
 	var buf bytes.Buffer
+
 	enc := yaml.NewEncoder(&buf)
 	enc.SetIndent(yamlIndent)
+
 	if err := enc.Encode(&doc); err != nil {
 		return "", err
 	}
+
 	if err := enc.Close(); err != nil {
 		return "", err
 	}
+
 	return buf.String(), nil
 }
 
@@ -75,7 +81,9 @@ func (w *scalarWalker) walk(n *yaml.Node, shared bool) error {
 	if n == nil || w.visited[n] {
 		return nil
 	}
+
 	w.visited[n] = true
+
 	shared = shared || n.Anchor != ""
 	switch n.Kind {
 	case yaml.DocumentNode, yaml.SequenceNode:
@@ -97,6 +105,7 @@ func (w *scalarWalker) walk(n *yaml.Node, shared bool) error {
 		return w.rewriteScalar(n, shared)
 	default:
 	}
+
 	return nil
 }
 
@@ -111,6 +120,7 @@ func (w *scalarWalker) rewriteScalar(n *yaml.Node, shared bool) error {
 	if err != nil || !ok {
 		return err
 	}
+
 	switch {
 	case literal && !utf8.ValidString(out):
 		// yaml.v3 encodes no invalid UTF-8 as text: carry the
@@ -122,7 +132,9 @@ func (w *scalarWalker) rewriteScalar(n *yaml.Node, shared bool) error {
 	default:
 		n.Value, n.Tag, n.Style = out, "", 0
 	}
+
 	w.changed = true
+
 	return nil
 }
 
@@ -142,6 +154,7 @@ func explicitTag(n *yaml.Node) string {
 	if n.Style&yaml.TaggedStyle == 0 {
 		return ""
 	}
+
 	return n.ShortTag()
 }
 
@@ -152,10 +165,12 @@ func decodedText(n *yaml.Node) string {
 	if n.ShortTag() != binaryTag {
 		return n.Value
 	}
+
 	b, err := base64.StdEncoding.DecodeString(strings.Join(strings.Fields(n.Value), ""))
 	if err != nil {
 		return n.Value
 	}
+
 	return string(b)
 }
 
@@ -166,13 +181,18 @@ func (k *keyNode) Scalars() []backend.Position {
 	if !ok || n == nil {
 		return nil
 	}
+
 	var out []backend.Position
+
 	visited := make(map[*yaml.Node]bool)
+
 	var walk func(n *yaml.Node)
+
 	walk = func(n *yaml.Node) {
 		if n == nil || visited[n] {
 			return
 		}
+
 		visited[n] = true
 		switch n.Kind {
 		case yaml.DocumentNode, yaml.SequenceNode:
@@ -191,28 +211,33 @@ func (k *keyNode) Scalars() []backend.Position {
 		}
 	}
 	walk(n)
+
 	return out
 }
 
 // Scalars lists the scalar positions of an inline struct's fields.
 func (n *fieldsNode) Scalars() []backend.Position {
 	var out []backend.Position
+
 	for _, f := range n.fields {
 		if l, ok := f.(backend.ScalarLister); ok {
 			out = append(out, l.Scalars()...)
 		}
 	}
+
 	return out
 }
 
 // Scalars lists the scalar positions of an inline map's entries.
 func (n *entriesNode) Scalars() []backend.Position {
 	var out []backend.Position
+
 	for _, e := range n.entries {
 		if l, ok := e.(backend.ScalarLister); ok {
 			out = append(out, l.Scalars()...)
 		}
 	}
+
 	return out
 }
 

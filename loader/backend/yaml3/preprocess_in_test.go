@@ -19,11 +19,13 @@ import (
 // openRoot opens dir as an os.Root and returns it with dir's resolved path.
 func openRoot(t testing.TB, dir string) (*os.Root, string) {
 	t.Helper()
+
 	resolved, err := filepath.EvalSymlinks(dir)
 	require.NoError(t, err)
 	root, err := os.OpenRoot(resolved)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = root.Close() })
+
 	return root, resolved
 }
 
@@ -42,23 +44,27 @@ func TestBackend_PreprocessIn(t *testing.T) {
 
 	t.Run("nested includes", func(t *testing.T) {
 		t.Parallel()
+
 		got, err := b.PreprocessIn("top: 0\n!include mid.yaml\n", resolved, root, resolved, 0)
 		require.NoError(t, err)
 		require.Equal(t, "top: 0\nmid:\n  leaf: 1\n", got)
 	})
 	t.Run("include outside the root", func(t *testing.T) {
 		t.Parallel()
+
 		_, err := b.PreprocessIn("!include "+outside+"\n", resolved, root, resolved, 0)
 		require.Error(t, err)
 		require.NotContains(t, err.Error(), "secret: x")
 	})
 	t.Run("size bound", func(t *testing.T) {
 		t.Parallel()
+
 		_, err := b.PreprocessIn("!include mid.yaml\n", resolved, root, resolved, 4)
 		require.ErrorIs(t, err, coreio.ErrReadLimitExceeded)
 	})
 	t.Run("caller keeps the root open", func(t *testing.T) {
 		t.Parallel()
+
 		_, err := b.PreprocessIn("!include mid.yaml\n", resolved, root, resolved, 0)
 		require.NoError(t, err)
 		_, err = root.Stat("mid.yaml")

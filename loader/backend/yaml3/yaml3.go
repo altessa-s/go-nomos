@@ -42,7 +42,9 @@ func (b *Backend) Decode(reader io.Reader, in any) error {
 	if err != nil {
 		return err
 	}
+
 	decoder := yaml.NewDecoder(reader)
+
 	return decoder.Decode(in)
 }
 
@@ -56,6 +58,7 @@ func (b *Backend) PrepareDocument(content string) string {
 			return content
 		}
 	}
+
 	return "{}\n"
 }
 
@@ -67,11 +70,15 @@ func (b *Backend) Encode(w io.Writer, value any) (err error) {
 			err = fmt.Errorf("%w: %v", errEncode, r)
 		}
 	}()
+
 	e := yaml.NewEncoder(w)
+
 	const indent = 4
 	e.SetIndent(indent)
+
 	if err := e.Encode(value); err != nil {
 		return err
 	}
+
 	return e.Close()
 }

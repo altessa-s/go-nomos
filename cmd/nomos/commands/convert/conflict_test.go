@@ -16,6 +16,7 @@ import (
 
 func TestEnvToConfigRejectsConflictingPaths(t *testing.T) {
 	t.Parallel()
+
 	for _, tc := range []struct{ name, input string }{
 		{"scalar and object", "APP=scalar\nAPP__HOST=localhost\n"},
 		{"scalar and array", "APP=scalar\nAPP__0=value\n"},

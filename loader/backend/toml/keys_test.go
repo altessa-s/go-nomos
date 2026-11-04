@@ -44,11 +44,13 @@ var keysConfigType = reflect.TypeFor[keysConfig]()
 
 func decodeKeys(t testing.TB, doc string) map[int]backend.KeyNode {
 	t.Helper()
+
 	root, err := (&toml.Backend{}).DecodeKeys(strings.NewReader(doc))
 	require.NoError(t, err)
 	require.False(t, root.IsNull())
 	fs, ok := root.Fields(keysConfigType)
 	require.True(t, ok)
+
 	return fs
 }
 
@@ -114,6 +116,7 @@ func TestBackend_DecodeKeys_ShadowNames(t *testing.T) {
 
 	root, err := (&toml.Backend{}).DecodeKeys(strings.NewReader("port = 0\ne = 0\n"))
 	require.NoError(t, err)
+
 	fs, ok := root.Fields(reflect.TypeFor[collisionConfig]())
 	require.True(t, ok)
 
@@ -130,8 +133,10 @@ func TestBackend_DecodeKeys_DashTag(t *testing.T) {
 	type dashConfig struct {
 		Dash int `toml:"-,omitempty"`
 	}
+
 	root, err := (&toml.Backend{}).DecodeKeys(strings.NewReader("\"-\" = 0\n"))
 	require.NoError(t, err)
+
 	fs, ok := root.Fields(reflect.TypeFor[dashConfig]())
 	require.True(t, ok)
 	require.Contains(t, fs, 0, `"-,omitempty" binds the key "-"`)
@@ -143,6 +148,7 @@ func TestBackend_DecodeKeys_Concurrent(t *testing.T) {
 
 	root, err := (&toml.Backend{}).DecodeKeys(strings.NewReader("port = 0\n[[items]]\nZ = 0\n[byName.a]\nport = 0\n"))
 	require.NoError(t, err)
+
 	fs, ok := root.Fields(keysConfigType)
 	require.True(t, ok)
 
@@ -154,6 +160,7 @@ func TestBackend_DecodeKeys_Concurrent(t *testing.T) {
 			_, _ = fs[6].Entries(keysConfigType.Field(6).Type)
 		})
 	}
+
 	wg.Wait()
 }
 
@@ -207,16 +214,20 @@ type (
 // path, following flattened embedded structs.
 func leafSet(t testing.TB, fs map[int]backend.KeyNode, typ reflect.Type, path ...int) bool {
 	t.Helper()
+
 	n, ok := fs[path[0]]
 	if !ok || len(path) == 1 {
 		return ok
 	}
+
 	ft := typ.Field(path[0]).Type
 	for ft.Kind() == reflect.Pointer {
 		ft = ft.Elem()
 	}
+
 	inner, ok := n.Fields(ft)
 	require.True(t, ok)
+
 	return leafSet(t, inner, ft, path[1:]...)
 }
 
@@ -228,65 +239,88 @@ func TestBackend_DecodeKeys_EmbeddingMatchesDecoder(t *testing.T) {
 
 	keys := func(t *testing.T, doc string, typ reflect.Type) map[int]backend.KeyNode {
 		t.Helper()
+
 		root, err := (&toml.Backend{}).DecodeKeys(strings.NewReader(doc))
 		require.NoError(t, err)
+
 		fs, ok := root.Fields(typ)
 		require.True(t, ok)
+
 		return fs
 	}
 
 	t.Run("diamond", func(t *testing.T) {
 		t.Parallel()
+
 		doc := "X = 1\nY = 2\n"
-		var real diamondConfig
-		_, err := burntsushi.Decode(doc, &real)
+
+		var decoded diamondConfig
+
+		_, err := burntsushi.Decode(doc, &decoded)
 		require.NoError(t, err)
+
 		typ := reflect.TypeFor[diamondConfig]()
 		fs := keys(t, doc, typ)
-		require.Equal(t, real.DiamondLeft.X != 0, leafSet(t, fs, typ, 0, 0, 0))
-		require.Equal(t, real.DiamondRight.X != 0, leafSet(t, fs, typ, 1, 0, 0))
+		require.Equal(t, decoded.DiamondLeft.X != 0, leafSet(t, fs, typ, 0, 0, 0))
+		require.Equal(t, decoded.DiamondRight.X != 0, leafSet(t, fs, typ, 1, 0, 0))
 		require.True(t, leafSet(t, fs, typ, 2))
 	})
 	t.Run("shallower wins", func(t *testing.T) {
 		t.Parallel()
+
 		doc := "X = 1\n"
-		var real shallowConfig
-		_, err := burntsushi.Decode(doc, &real)
+
+		var decoded shallowConfig
+
+		_, err := burntsushi.Decode(doc, &decoded)
 		require.NoError(t, err)
+
 		typ := reflect.TypeFor[shallowConfig]()
 		fs := keys(t, doc, typ)
-		require.Equal(t, real.ShallowInner.X != 0, leafSet(t, fs, typ, 0, 0))
-		require.Equal(t, real.X != 0, leafSet(t, fs, typ, 1))
+		require.Equal(t, decoded.ShallowInner.X != 0, leafSet(t, fs, typ, 0, 0))
+		require.Equal(t, decoded.X != 0, leafSet(t, fs, typ, 1))
 	})
 	t.Run("tagged dominates", func(t *testing.T) {
 		t.Parallel()
+
 		doc := "x = 1\n"
-		var real taggedConfig
-		_, err := burntsushi.Decode(doc, &real)
+
+		var decoded taggedConfig
+
+		_, err := burntsushi.Decode(doc, &decoded)
 		require.NoError(t, err)
+
 		typ := reflect.TypeFor[taggedConfig]()
 		fs := keys(t, doc, typ)
-		require.Equal(t, real.TaggedLeft.X != 0, leafSet(t, fs, typ, 0, 0))
-		require.Equal(t, real.UntaggedRight.X != 0, leafSet(t, fs, typ, 1, 0))
+		require.Equal(t, decoded.TaggedLeft.X != 0, leafSet(t, fs, typ, 0, 0))
+		require.Equal(t, decoded.UntaggedRight.X != 0, leafSet(t, fs, typ, 1, 0))
 	})
 	t.Run("recursive", func(t *testing.T) {
 		t.Parallel()
+
 		doc := "Name = \"a\"\n"
-		var real Recursive
-		_, err := burntsushi.Decode(doc, &real)
+
+		var decoded Recursive
+
+		_, err := burntsushi.Decode(doc, &decoded)
 		require.NoError(t, err)
+
 		typ := reflect.TypeFor[Recursive]()
-		require.Equal(t, real.Name != "", leafSet(t, keys(t, doc, typ), typ, 1))
+		require.Equal(t, decoded.Name != "", leafSet(t, keys(t, doc, typ), typ, 1))
 	})
 	t.Run("mutual recursion", func(t *testing.T) {
 		t.Parallel()
+
 		doc := "A = 1\nB = 2\n"
-		var real MutualA
-		_, err := burntsushi.Decode(doc, &real)
+
+		var decoded MutualA
+
+		_, err := burntsushi.Decode(doc, &decoded)
 		require.NoError(t, err)
+
 		typ := reflect.TypeFor[MutualA]()
 		fs := keys(t, doc, typ)
-		require.Equal(t, real.A != 0, leafSet(t, fs, typ, 1))
-		require.Equal(t, real.MutualB != nil && real.B != 0, leafSet(t, fs, typ, 0, 1))
+		require.Equal(t, decoded.A != 0, leafSet(t, fs, typ, 1))
+		require.Equal(t, decoded.MutualB != nil && decoded.B != 0, leafSet(t, fs, typ, 0, 1))
 	})
 }

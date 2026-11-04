@@ -39,6 +39,7 @@ func TestDefaultsRunOnceForAliasedStructs(t *testing.T) {
 		t.Run(field, func(t *testing.T) {
 			t.Setenv("COREALIASTEST_"+field+"__VALUE", "5")
 			t.Setenv("COREALIASTEST_"+field+"__LABEL", "")
+
 			shared := &aliasedDefaulter{}
 			cfg := &aliasedDefaultsConfig{First: shared, Second: shared}
 			_, err := loader.New(nil, loader.WithEnvPrefix("COREALIASTEST")).LoadContext(t.Context(), cfg)
@@ -83,6 +84,7 @@ func TestDefaultsKeepDisjointExplicitValuesOfAliases(t *testing.T) {
 	t.Setenv("COREALIASCOLLTEST_SECOND__PORTS__1", "0")
 	t.Setenv("COREALIASCOLLTEST_FIRST__ITEMS__a__X", "0")
 	t.Setenv("COREALIASCOLLTEST_SECOND__ITEMS__a__Y", "0")
+
 	shared := &aliasedCollections{Ports: []int{1, 2}, Items: map[string]*aliasedItem{"a": {X: 1, Y: 2}}}
 	cfg := &aliasedCollectionsConfig{First: shared, Second: shared}
 	_, err := loader.New(nil, loader.WithEnvPrefix("COREALIASCOLLTEST")).LoadContext(t.Context(), cfg)

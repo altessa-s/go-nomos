@@ -32,23 +32,29 @@ func (b *Backend) DecodeStrict(reader io.Reader, in any) error {
 	}
 
 	var unknown []toml.Key
+
 	root := reflect.TypeOf(in)
+
 	for _, key := range md.Undecoded() {
 		// Report an unknown table once, not every key beneath it.
 		if slices.ContainsFunc(unknown, func(u toml.Key) bool { return hasPrefix(key, u) }) {
 			continue
 		}
+
 		if unknownKey(root, key) {
 			unknown = append(unknown, key)
 		}
 	}
+
 	if len(unknown) > 0 {
 		names := make([]string, len(unknown))
 		for i, key := range unknown {
 			names[i] = key.String()
 		}
+
 		return fmt.Errorf("%w: %s in type %s", backend.ErrUnknownField, strings.Join(names, ", "), indirectType(root))
 	}
+
 	return nil
 }
 
@@ -66,15 +72,18 @@ func unknownKey(t reflect.Type, key toml.Key) bool {
 		if t == primitiveType || customDecoded(t) {
 			return false
 		}
+
 		switch t.Kind() {
 		case reflect.Struct:
 			ft, ok := fieldByKey(t, key[i])
 			if !ok {
 				return true
 			}
+
 			if ft == nil {
 				return false
 			}
+
 			t = ft
 			i++
 		case reflect.Map:
@@ -88,6 +97,7 @@ func unknownKey(t reflect.Type, key toml.Key) bool {
 			return false
 		}
 	}
+
 	return false
 }
 
@@ -98,10 +108,12 @@ func unknownKey(t reflect.Type, key toml.Key) bool {
 // express yields a nil type and true: it is not reported.
 func fieldByKey(t reflect.Type, key string) (reflect.Type, bool) {
 	sh := shadowOf(t)
+
 	v := reflect.New(sh.typ)
 	if _, err := toml.Decode(quoteKey(key)+" = 0\n", v.Interface()); err != nil {
 		return nil, true
 	}
+
 	return sh.boundField(t, v.Elem())
 }
 
@@ -110,6 +122,7 @@ func fieldByKey(t reflect.Type, key string) (reflect.Type, bool) {
 func quoteKey(key string) string {
 	var sb strings.Builder
 	sb.WriteByte('"')
+
 	for _, r := range key {
 		switch {
 		case r == '"' || r == '\\':
@@ -121,7 +134,9 @@ func quoteKey(key string) string {
 			sb.WriteRune(r)
 		}
 	}
+
 	sb.WriteByte('"')
+
 	return sb.String()
 }
 
@@ -130,17 +145,21 @@ func quoteKey(key string) string {
 func (s *shadow) boundField(t reflect.Type, v reflect.Value) (reflect.Type, bool) {
 	for _, f := range s.fields {
 		fv := v.Field(f.shadow)
+
 		ft := t.Field(f.index).Type
 		if f.embedded != nil {
 			if bt, ok := f.embedded.boundField(indirectType(ft), fv); ok {
 				return bt, true
 			}
+
 			continue
 		}
+
 		if !fv.IsZero() {
 			return ft, true
 		}
 	}
+
 	return nil, false
 }
 
@@ -149,6 +168,7 @@ func indirectType(t reflect.Type) reflect.Type {
 	for t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
+
 	return t
 }
 

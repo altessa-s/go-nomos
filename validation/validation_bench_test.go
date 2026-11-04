@@ -73,7 +73,9 @@ type benchParent struct {
 
 func BenchmarkNestedField(b *testing.B) {
 	p := &benchParent{Leaf: benchLeaf{Name: "x"}}
+
 	b.ReportAllocs()
+
 	for b.Loop() {
 		if err := validationconfig.ValidateStruct(p, validationconfig.NestedField(&p.Leaf)); err != nil {
 			b.Fatal(err)
@@ -86,7 +88,9 @@ func BenchmarkNestedEach(b *testing.B) {
 	for i := range p.Leaves {
 		p.Leaves[i].Name = "x"
 	}
+
 	b.ReportAllocs()
+
 	for b.Loop() {
 		if err := validationconfig.ValidateStruct(p, validationconfig.NestedEach(&p.Leaves)); err != nil {
 			b.Fatal(err)
@@ -109,7 +113,9 @@ func BenchmarkValidateStorage(b *testing.B) {
 		{When: "memory", Field: &c.Memory},
 		{When: "redis", Field: &c.Redis},
 	}
+
 	b.ReportAllocs()
+
 	for b.Loop() {
 		if err := validationconfig.ValidateStorage(c, &c.Type, allowed, cases); err != nil {
 			b.Fatal(err)
@@ -126,7 +132,9 @@ func BenchmarkPrettyError(b *testing.B) {
 		"database": validation.Errors{"host": errors.New("cannot be blank")},
 		"name":     errors.New("cannot be blank"),
 	}
+
 	b.ReportAllocs()
+
 	for b.Loop() {
 		if validationconfig.PrettyError(err) == "" {
 			b.Fatal("empty message")
