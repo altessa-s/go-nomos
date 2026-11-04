@@ -17,8 +17,11 @@ type options struct {
 	// ignored; the default is [slog.Default].
 	logger *slog.Logger `optgen:"default=slog.Default(),notnil"`
 	// failOnError ([WithFailOnError]) controls whether secret expansion errors
-	// cause Expand to return an error (fail-closed) or silently replace the
-	// placeholder with an empty string (fail-open). Default is true
+	// cause Expand to return an error (fail-closed) or replace the
+	// placeholder with an empty string (fail-open). Fail-open logs a warning
+	// when the Expander is created; Expand then logs one warning for each
+	// placeholder whose secret cannot be retrieved or, without a resolver,
+	// one warning per call that blanks its placeholders. Default is true
 	// (fail-closed) to prevent authorization bypass when secrets fail to
 	// resolve.
 	failOnError bool `optgen:"default=DefaultFailOnError" optval:"param"`
