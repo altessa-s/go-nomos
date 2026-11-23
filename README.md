@@ -20,7 +20,7 @@ interface, so the loader depends on no secret store.
 
 ## Requirements
 
-Go 1.27 or later (`go 1.27.0`, toolchain `go1.27.3`). Development and CI use the Go 1.27 modernizers and race-enabled tests.
+Go 1.27 or later (`go 1.27.0`, toolchain `go1.27.4`). Development and CI use the Go 1.27 modernizers and race-enabled tests.
 
 ## Packages
 
