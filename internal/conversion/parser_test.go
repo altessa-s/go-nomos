@@ -73,3 +73,12 @@ func TestEnvToConfig_NegativeIndex(t *testing.T) {
 		})
 	}
 }
+
+func TestEnvToConfig_EmptyFieldName(t *testing.T) {
+	t.Parallel()
+
+	for _, key := range []string{"", ".A", "A.", "A____B", "A__0___"} {
+		_, err := (&Parser{}).buildConfigStructure(map[string]string{key: "x"})
+		require.ErrorIs(t, err, ErrInvalidInput, "key %q", key)
+	}
+}

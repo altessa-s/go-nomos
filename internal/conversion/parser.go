@@ -132,6 +132,9 @@ func (conv *Parser) setNestedValue(data map[string]any, key, value string) error
 	for i := 0; i < len(parts); {
 		// Convert SCREAMING_SNAKE_CASE to camelCase
 		fieldName := corestrings.ScreamingSnakeToCamelCase(parts[i])
+		if fieldName == "" {
+			return fmt.Errorf("%w: empty field name in key %q", ErrInvalidInput, key)
+		}
 
 		if i == len(parts)-1 {
 			if _, exists := current[fieldName]; exists {
