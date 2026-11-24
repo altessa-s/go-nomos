@@ -124,3 +124,23 @@ func TestMarkdownRenderGolden(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, want, string(doc))
 }
+
+func TestMarkdownRenderedNameCollisions(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name string
+		data map[string]any
+	}{
+		{"disjoint sections", map[string]any{"ς": map[string]any{"a": 1}, "σ": map[string]any{"b": 2}}},
+		{"leaf and section", map[string]any{"ς": nil, "σ": map[string]any{}}},
+		{"flat and nested", map[string]any{"a__b": 1, "a": map[string]any{"b": 2}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := (&conversion.Markdown{}).Render(t.Context(), tc.data)
+			require.ErrorIs(t, err, conversion.ErrConflictingKey)
+		})
+	}
+}

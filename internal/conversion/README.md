@@ -32,3 +32,16 @@ assignment parsing ignores section headings. Malformed arrays and arrays exceedi
 (`fileStore.dir` becomes `FILE_STORE__DIR`). Without a schema, map entries cannot be told apart from sections, so map keys are converted the same way.
 
 `Markdown` escapes table cells so values cannot split table rows or columns.
+
+The parser processes assignments in document order. Repeating the same key after trimming surrounding whitespace replaces its value.
+Distinct keys that address the same normalized path (for example, `A.B` and `A__B`, or `PORTS__00` and `PORTS__0`) return
+`ErrConflictingKey`. Distinct field or section names that render to the same environment name also conflict, even if their children differ.
+Assigning both a whole value and a child, or using a field as both a section and an indexed array, returns the same error in either order.
+
+Only a numeric segment immediately after a field name denotes an array index. Indices must be between 0 and 1023 inclusive.
+Negative or out-of-range indices, empty field names, and invalid UTF-8 names return `ErrInvalidInput`.
+The parser validates the entire key before checking its path for conflicts.
+
+For configuration maps supplied directly, `Markdown.Render` returns `ErrConflictingKey` on a rendered name collision.
+`Env.Render` and `Env.FlattenConfig` visit sibling keys in ascending lexical order. When multiple paths produce the same variable,
+the last value emitted in that traversal supplies its value.

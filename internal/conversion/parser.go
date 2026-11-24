@@ -43,8 +43,8 @@ func (conv *Parser) ParseContext(ctx context.Context, reader io.Reader, parseCom
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	// Parse .env file
-	envVars := make(map[string]string)
+
+	root := pathNode{fields: make(map[string]*pathNode)}
 	scanner := bufio.NewScanner(reader)
 	lineNum := 0
 
@@ -88,153 +88,155 @@ func (conv *Parser) ParseContext(ctx context.Context, reader io.Reader, parseCom
 
 		value := strings.TrimSpace(parts[1])
 
-		envVars[key] = value
+		path, err := conv.parsePath(key)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := root.assign(path, key, value); err != nil {
+			return nil, err
+		}
 	}
 
 	if scanErr := scanner.Err(); scanErr != nil {
 		return nil, coreerrs.WrapOperation(scanErr, "scan .env file")
 	}
 
-	// Build config structure
-	configData, err := conv.buildConfigStructure(envVars)
-	if err != nil {
-		return nil, err
-	}
-
-	return configData, nil
+	return root.configFields(conv), nil
 }
 
-// buildConfigStructure builds nested config structure from flat env variables.
-func (conv *Parser) buildConfigStructure(envVars map[string]string) (map[string]any, error) {
-	result := make(map[string]any)
-
-	for key, value := range envVars {
-		if err := conv.setNestedValue(result, key, value); err != nil {
-			return nil, err
-		}
-	}
-
-	return result, nil
+// A pathNode holds either fields, indexed elements, or a complete assignment.
+// Keep a leaf's text until the tree is built so an array literal is also a leaf.
+type pathNode struct {
+	name   string
+	value  string
+	rawKey string
+	fields map[string]*pathNode
+	elems  []*pathNode
 }
 
-// setNestedValue sets a value in nested map structure based on key path.
-// A purely numeric part following a field is an index into that field's
-// array: SERVERS__0__HOST sets servers[0].host, and PORTS__0 sets ports[0].
-func (conv *Parser) setNestedValue(data map[string]any, key, value string) error {
-	// Split by __ (section delimiter) and . (array index)
+type pathField struct {
+	name  string
+	index int // -1 for an unindexed field.
+}
+
+// parsePath validates the whole assignment before a conflicting prefix can mask an invalid suffix.
+func (conv *Parser) parsePath(key string) ([]pathField, error) {
 	parts := conv.splitKey(key)
-	if len(parts) == 0 {
-		return nil
-	}
 
-	current := data
-
-	for i := 0; i < len(parts); {
-		// Convert SCREAMING_SNAKE_CASE to camelCase
-		fieldName := corestrings.ScreamingSnakeToCamelCase(parts[i])
-
-		if i == len(parts)-1 {
-			if _, exists := current[fieldName]; exists {
-				return fmt.Errorf("%w: %s", ErrConflictingKey, key)
-			}
-
-			current[fieldName] = conv.parseValue(value)
-
-			return nil
+	path := make([]pathField, 0, len(parts))
+	for i := 0; i < len(parts); i++ {
+		name := corestrings.ScreamingSnakeToCamelCase(parts[i])
+		if name == "" {
+			return nil, fmt.Errorf("%w: empty field name in key %q", ErrInvalidInput, key)
 		}
 
-		idx, parseErr := strconv.Atoi(parts[i+1])
-		if parseErr != nil {
-			// Regular nested field: move to (or create) the nested map.
-			nestedMap, err := nestedSection(current, fieldName, key)
-			if err != nil {
-				return err
-			}
+		field := pathField{name: name, index: -1}
 
-			current = nestedMap
+		if i+1 < len(parts) && isDecimalIndex(parts[i+1]) {
 			i++
 
-			continue
-		}
-
-		if idx < 0 || idx >= DefaultMaxArrayLen {
-			return fmt.Errorf("%w: array index %q in key %q", ErrInvalidInput, parts[i+1], key)
-		}
-
-		// The next part is an array index: extend the slice to cover it.
-		slice, previouslyAllocated, err := growArray(current, fieldName, idx, key)
-		if err != nil {
-			return err
-		}
-
-		// A trailing index sets the array element itself.
-		if i+1 == len(parts)-1 {
-			if previouslyAllocated && !isEmptyPlaceholder(slice[idx]) {
-				return fmt.Errorf("%w: %s", ErrConflictingKey, key)
+			idx, err := strconv.Atoi(parts[i])
+			if err != nil || idx < 0 || idx >= DefaultMaxArrayLen {
+				return nil, fmt.Errorf("%w: array index %q in key %q", ErrInvalidInput, parts[i], key)
 			}
 
-			slice[idx] = conv.parseValue(value)
-
-			return nil
+			field.index = idx
 		}
 
-		// Move to the array element, consuming both the field and the index.
-		element, ok := slice[idx].(map[string]any)
-		if !ok {
+		path = append(path, field)
+	}
+
+	return path, nil
+}
+
+// Check the spelling separately so integer overflow cannot turn an index into a field.
+func isDecimalIndex(part string) bool {
+	if strings.HasPrefix(part, "+") || strings.HasPrefix(part, "-") {
+		part = part[1:]
+	}
+
+	return part != "" && strings.Trim(part, "0123456789") == ""
+}
+
+func (node *pathNode) assign(path []pathField, key, value string) error {
+	for _, field := range path {
+		if node.rawKey != "" || node.elems != nil {
 			return fmt.Errorf("%w: %s", ErrConflictingKey, key)
 		}
 
-		current = element
-		i += 2
+		if node.fields == nil {
+			node.fields = make(map[string]*pathNode)
+		}
+
+		envName := corestrings.ToScreamingSnakeCase(field.name)
+
+		child := node.fields[envName]
+		if child == nil {
+			child = &pathNode{name: field.name}
+			node.fields[envName] = child
+		} else if child.name != field.name {
+			return fmt.Errorf("%w: %s", ErrConflictingKey, key)
+		}
+
+		node = child
+
+		idx := field.index
+		if idx < 0 {
+			continue
+		}
+
+		if node.rawKey != "" || node.fields != nil {
+			return fmt.Errorf("%w: %s", ErrConflictingKey, key)
+		}
+
+		for len(node.elems) <= idx {
+			node.elems = append(node.elems, nil)
+		}
+
+		if node.elems[idx] == nil {
+			node.elems[idx] = &pathNode{}
+		}
+
+		node = node.elems[idx]
 	}
+
+	if node.fields != nil || node.elems != nil || (node.rawKey != "" && node.rawKey != key) {
+		return fmt.Errorf("%w: %s", ErrConflictingKey, key)
+	}
+
+	node.value, node.rawKey = value, key
 
 	return nil
 }
 
-// nestedSection returns the nested map at fieldName in current, creating it
-// when absent; a non-map value there conflicts with key.
-func nestedSection(current map[string]any, fieldName, key string) (map[string]any, error) {
-	existing, exists := current[fieldName]
-
-	nestedMap, ok := existing.(map[string]any)
-	if exists && !ok {
-		return nil, fmt.Errorf("%w: %s", ErrConflictingKey, key)
+func (node *pathNode) configFields(conv *Parser) map[string]any {
+	fields := make(map[string]any, len(node.fields))
+	for _, child := range node.fields {
+		fields[child.name] = child.configValue(conv)
 	}
 
-	if !ok {
-		nestedMap = make(map[string]any)
-		current[fieldName] = nestedMap
-	}
-
-	return nestedMap, nil
+	return fields
 }
 
-// growArray returns the array at fieldName in current, extended with empty
-// placeholder maps to cover idx, and whether idx was already allocated; a
-// non-array value there conflicts with key.
-func growArray(current map[string]any, fieldName string, idx int, key string) ([]any, bool, error) {
-	existing, exists := current[fieldName]
+func (node *pathNode) configValue(conv *Parser) any {
+	switch {
+	case node.rawKey != "":
+		return conv.parseValue(node.value)
+	case node.elems != nil:
+		elems := make([]any, len(node.elems))
+		for i, child := range node.elems {
+			if child == nil {
+				elems[i] = map[string]any{}
+			} else {
+				elems[i] = child.configValue(conv)
+			}
+		}
 
-	slice, ok := existing.([]any)
-	if exists && !ok {
-		return nil, false, fmt.Errorf("%w: %s", ErrConflictingKey, key)
+		return elems
+	default:
+		return node.configFields(conv)
 	}
-
-	previouslyAllocated := idx < len(slice)
-	for len(slice) <= idx {
-		slice = append(slice, make(map[string]any))
-	}
-
-	current[fieldName] = slice
-
-	return slice, previouslyAllocated, nil
-}
-
-// isEmptyPlaceholder reports whether v is an element growArray allocated and
-// nothing has set since.
-func isEmptyPlaceholder(v any) bool {
-	placeholder, isPlaceholder := v.(map[string]any)
-	return isPlaceholder && len(placeholder) == 0
 }
 
 // splitKey splits environment variable key into parts.

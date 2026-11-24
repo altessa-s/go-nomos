@@ -26,7 +26,10 @@ func (conv *Markdown) Render(ctx context.Context, configData map[string]any) ([]
 		return nil, err
 	}
 	// Flatten to env vars with type information
-	envVars := conv.flattenConfigWithTypes(configData, "")
+	envVars := make(map[string]variableInfo)
+	if err := conv.flattenConfigWithTypes(configData, "", envVars, make(map[string]bool)); err != nil {
+		return nil, err
+	}
 
 	// Sort keys for consistent output
 	keys := make([]string, 0, len(envVars))
@@ -105,10 +108,9 @@ type variableInfo struct {
 }
 
 // flattenConfigWithTypes recursively flattens config structure into env variables with type information.
-func (conv *Markdown) flattenConfigWithTypes(data map[string]any, prefix string) map[string]variableInfo {
-	result := make(map[string]variableInfo)
-
-	for key, value := range data {
+func (conv *Markdown) flattenConfigWithTypes(data map[string]any, prefix string, result map[string]variableInfo, seen map[string]bool) error {
+	for _, key := range slices.Sorted(maps.Keys(data)) {
+		value := data[key]
 		// Convert key to SCREAMING_SNAKE_CASE
 		envKey := corestrings.ToScreamingSnakeCase(key)
 
@@ -118,11 +120,24 @@ func (conv *Markdown) flattenConfigWithTypes(data map[string]any, prefix string)
 			fullKey = prefix + "__" + envKey
 		}
 
-		// Process value and detect type
+		// Reserve section names too, even when their children are disjoint.
+		if seen[fullKey] {
+			return fmt.Errorf("%w: %s", ErrConflictingKey, fullKey)
+		}
+
+		seen[fullKey] = true
+		if nested, ok := value.(map[string]any); ok {
+			if err := conv.flattenConfigWithTypes(nested, fullKey, result, seen); err != nil {
+				return err
+			}
+
+			continue
+		}
+
 		conv.processValueWithType(result, fullKey, value)
 	}
 
-	return result
+	return nil
 }
 
 // processValueWithType processes a single value, detects its type, and adds it to the result map.
@@ -136,11 +151,7 @@ func (conv *Markdown) processValueWithType(result map[string]variableInfo, key s
 
 	switch v.Kind() {
 	case reflect.Map:
-		// Nested map - recurse
-		if mapValue, ok := value.(map[string]any); ok {
-			nested := conv.flattenConfigWithTypes(mapValue, key)
-			maps.Copy(result, nested)
-		}
+		return
 
 	case reflect.Slice, reflect.Array:
 		// Array - format as [element1,element2,element3]
