@@ -6,6 +6,7 @@ package conversion
 
 import (
 	"fmt"
+	"maps"
 	"reflect"
 	"slices"
 	"strconv"
@@ -18,6 +19,7 @@ import (
 type Env struct{}
 
 // Render writes a deterministic environment document from configuration data.
+// Colliding names follow the lexical traversal order documented on FlattenConfig.
 func (conv *Env) Render(configData map[string]any, commentedKeys map[string]bool, parseComments bool) []byte {
 	// Flatten to env vars
 	envVars := make(map[string]string, estimateSize(configData))
@@ -126,6 +128,8 @@ func estimateSize(data map[string]any) int {
 // SCREAMING_SNAKE_CASE the same way the loader names struct levels. Without a
 // schema, map entries cannot be told apart from struct sections, so map keys
 // are converted too (e.g. "keycloakSync" becomes "KEYCLOAK_SYNC").
+// Sibling keys are visited in ascending lexical order. If paths emit the
+// same name, the last value emitted in that traversal wins.
 func (conv *Env) FlattenConfig(data map[string]any, prefix string) map[string]string {
 	// Estimate size and create map with capacity
 	result := make(map[string]string, estimateSize(data))
@@ -137,7 +141,8 @@ func (conv *Env) FlattenConfig(data map[string]any, prefix string) map[string]st
 // flattenConfigInto recursively flattens config structure into an existing result map.
 // This avoids allocating new maps for each recursive call, improving performance.
 func (conv *Env) flattenConfigInto(result map[string]string, data map[string]any, prefix string, encode bool) {
-	for key, value := range data {
+	for _, key := range slices.Sorted(maps.Keys(data)) {
+		value := data[key]
 		envKey := corestrings.ToScreamingSnakeCase(key)
 
 		// Build full key with prefix

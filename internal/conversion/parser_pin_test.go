@@ -5,58 +5,45 @@
 package conversion
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
-func TestSetNestedValue_Pin(t *testing.T) {
+func TestParseNestedValues(t *testing.T) {
 	t.Parallel()
 
 	type kv struct{ key, value string }
 
 	for _, tc := range []struct {
-		name     string
-		keys     []kv
-		want     map[string]any
-		conflict bool
+		name    string
+		keys    []kv
+		want    map[string]any
+		wantErr error
 	}{
-		{"leaf set twice", []kv{{"A__B", "x"}, {"A__B", "y"}}, nil, true},
-		{"leaf over a section", []kv{{"A__B", "x"}, {"A", "y"}}, nil, true},
-		{"section over a leaf", []kv{{"A", "y"}, {"A__B", "x"}}, nil, true},
+		{"leaf set twice", []kv{{"A__B", "x"}, {"A__B", "y"}}, map[string]any{"a": map[string]any{"b": "y"}}, nil},
+		{"leaf over a section", []kv{{"A__B", "x"}, {"A", "y"}}, nil, ErrConflictingKey},
+		{"section over a leaf", []kv{{"A", "y"}, {"A__B", "x"}}, nil, ErrConflictingKey},
 		{"index over an untouched placeholder", []kv{{"PORTS__1__HOST", "h"}, {"PORTS__0", "80"}},
-			map[string]any{"ports": []any{int64(80), map[string]any{"host": "h"}}}, false},
-		{"index over a filled element", []kv{{"PORTS__0__HOST", "h"}, {"PORTS__0", "80"}}, nil, true},
-		{"index set twice", []kv{{"PORTS__0", "80"}, {"PORTS__0", "81"}}, nil, true},
-		{"field below a scalar element", []kv{{"PORTS__0", "80"}, {"PORTS__0__HOST", "h"}}, nil, true},
-		{"array over a section", []kv{{"PORTS__X", "1"}, {"PORTS__0", "80"}}, nil, true},
-		{"negative index", []kv{{"PORTS__-1", "80"}}, nil, true},
+			map[string]any{"ports": []any{int64(80), map[string]any{"host": "h"}}}, nil},
+		{"index over a filled element", []kv{{"PORTS__0__HOST", "h"}, {"PORTS__0", "80"}}, nil, ErrConflictingKey},
+		{"index set twice", []kv{{"PORTS__0", "80"}, {"PORTS__0", "81"}}, map[string]any{"ports": []any{int64(81)}}, nil},
+		{"field below a scalar element", []kv{{"PORTS__0", "80"}, {"PORTS__0__HOST", "h"}}, nil, ErrConflictingKey},
+		{"array over a section", []kv{{"PORTS__X", "1"}, {"PORTS__0", "80"}}, nil, ErrConflictingKey},
+		{"negative index", []kv{{"PORTS__-1", "80"}}, nil, ErrInvalidInput},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			conv := &Parser{}
-			data := map[string]any{}
-
-			var err error
+			var doc strings.Builder
 			for _, e := range tc.keys {
-				if err = conv.setNestedValue(data, e.key, e.value); err != nil {
-					break
-				}
+				doc.WriteString(e.key + "=" + e.value + "\n")
 			}
 
-			if tc.conflict {
-				if tc.name == "negative index" {
-					require.ErrorIs(t, err, ErrInvalidInput)
-					return
-				}
+			data, err := (&Parser{}).Parse(strings.NewReader(doc.String()), false)
 
-				require.ErrorIs(t, err, ErrConflictingKey)
-
-				return
-			}
-
-			require.NoError(t, err)
+			require.ErrorIs(t, err, tc.wantErr)
 			require.Equal(t, tc.want, data)
 		})
 	}
